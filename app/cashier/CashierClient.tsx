@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { getTablesWithBilling, processPayment, TableWithBilling } from "@/app/actions/cashier";
-import { Calculator, CheckCircle2, ChevronRight, ReceiptText, Users, X } from "lucide-react";
+import { Calculator, CheckCircle2, ChevronRight, ReceiptText, Users, X, Clock } from "lucide-react";
 
 import { usePolling } from "@/app/hooks/usePolling";
 
@@ -11,6 +11,7 @@ export default function CashierClient() {
   const [selectedTable, setSelectedTable] = useState<TableWithBilling | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isMember, setIsMember] = useState(false);
 
   const fetchTables = useCallback(async () => {
     const data = await getTablesWithBilling();
@@ -37,6 +38,7 @@ export default function CashierClient() {
     setIsProcessing(false);
     if (result.success) {
       setSelectedTable(null);
+      setIsMember(false);
       setShowSuccess(true);
       fetchTables();
       setTimeout(() => setShowSuccess(false), 3000);
@@ -142,7 +144,7 @@ export default function CashierClient() {
               <p className="text-slate-400 text-sm mt-1">{selectedTable.unpaidOrders.length} ออเดอร์ที่ยังไม่ชำระเงิน</p>
             </div>
             <button
-              onClick={() => setSelectedTable(null)}
+              onClick={() => { setSelectedTable(null); setIsMember(false); }}
               className="p-2 bg-slate-800 text-slate-300 hover:text-white rounded-full transition-colors md:hidden"
             >
               <X size={20} />
@@ -184,12 +186,36 @@ export default function CashierClient() {
                 ))}
               </div>
             )}
+            {/* Warning for unserved orders */}
+            {selectedTable.unpaidOrders.some(o => o.status === 'Pending' || o.status === 'Cooking') && (
+              <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 text-amber-700 items-start shadow-sm">
+                <div className="bg-amber-100 p-1.5 rounded-full mt-0.5"><Clock size={16} /></div>
+                <div>
+                  <p className="font-bold text-sm">ระวัง: มีออเดอร์ที่ยังเสิร์ฟไม่ครบ</p>
+                  <p className="text-xs mt-1">คุณกำลังจะคิดเงินโต๊ะนี้ แต่ยังมีออเดอร์ในครัวที่ยังทำไม่เสร็จ</p>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="p-6 bg-white border-t border-slate-100 shrink-0">
+          <div className="p-6 bg-white border-t border-slate-100 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center justify-between mb-4">
+              <label className="flex items-center gap-2 cursor-pointer text-slate-700 font-medium select-none">
+                <input 
+                  type="checkbox" 
+                  checked={isMember} 
+                  onChange={(e) => setIsMember(e.target.checked)}
+                  className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                ใช้สิทธิ์สมาชิก (ลด 10%)
+              </label>
+              {isMember && <span className="text-emerald-600 font-bold text-sm">-฿{(selectedTable.totalAmount * 0.1).toFixed(2)}</span>}
+            </div>
             <div className="flex justify-between items-end mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
               <span className="text-slate-500 font-medium">ยอดชำระสุทธิ (Grand Total)</span>
-              <span className="text-4xl font-black text-blue-700">฿{selectedTable.totalAmount}</span>
+              <span className="text-4xl font-black text-blue-700">
+                ฿{isMember ? (selectedTable.totalAmount * 0.9).toFixed(2) : selectedTable.totalAmount}
+              </span>
             </div>
             <button
               onClick={handlePayment}

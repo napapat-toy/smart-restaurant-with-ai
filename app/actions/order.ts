@@ -53,3 +53,12 @@ export async function getTableOrders(tableId: string) {
     .filter(o => o.tableId === tableId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
+
+export async function cancelOrder(orderId: string) {
+  const order = mockOrders.find(o => o.id === orderId);
+  if (order && order.status === 'Pending') {
+    order.status = 'Cancelled';
+    return { success: true };
+  }
+  return { success: false, error: "Cannot cancel this order" };
+}

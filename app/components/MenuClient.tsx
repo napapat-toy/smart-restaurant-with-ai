@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import { mockMenuItems, Order } from "@/data/mockDb";
 import { ShoppingCart, Plus, Minus, X, CheckCircle2, ReceiptText, Clock, ChefHat } from "lucide-react";
-import { submitOrder, getTableOrders } from "@/app/actions/order";
+import { submitOrder, getTableOrders, cancelOrder } from "@/app/actions/order";
 import { useCart } from "@/app/hooks/useCart";
 import { usePolling } from "@/app/hooks/usePolling";
 import { QuantityControl } from "./ui/QuantityControl";
@@ -55,6 +55,16 @@ export default function MenuClient({ tableNumber }: { tableNumber: string }) {
       setTimeout(() => setIsHistoryOpen(true), 1000);
     } else {
       alert("เกิดข้อผิดพลาดในการสั่งอาหาร กรุณาลองใหม่อีกครั้ง");
+    }
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    if (!confirm("คุณแน่ใจหรือไม่ว่าต้องการยกเลิกออเดอร์นี้?")) return;
+    const res = await cancelOrder(orderId);
+    if (res.success) {
+      fetchHistory();
+    } else {
+      alert("ไม่สามารถยกเลิกออเดอร์ได้ (อาจกำลังปรุงอยู่)");
     }
   };
 
@@ -270,7 +280,17 @@ export default function MenuClient({ tableNumber }: { tableNumber: string }) {
                       <p className="text-xs text-slate-500 flex items-center gap-1 font-medium">
                         <Clock size={12} /> {new Date(order.createdAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })}
                       </p>
-                      <StatusBadge status={order.status} />
+                      <div className="flex items-center gap-2">
+                        {order.status === 'Pending' && (
+                          <button 
+                            onClick={() => handleCancelOrder(order.id)}
+                            className="text-[10px] text-rose-500 bg-rose-50 px-2 py-1 rounded border border-rose-200 hover:bg-rose-100 transition-colors"
+                          >
+                            ยกเลิก
+                          </button>
+                        )}
+                        <StatusBadge status={order.status} />
+                      </div>
                     </div>
 
                     <div className="space-y-3">
