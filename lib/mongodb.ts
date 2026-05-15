@@ -6,11 +6,9 @@ if (!MONGODB_URI) {
   throw new Error("Please define the MONGODB_URI environment variable inside .env.local");
 }
 
-// @ts-expect-error - mongoose global var
 let cached: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null } = (global as unknown as { mongoose: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null } }).mongoose;
 
 if (!cached) {
-  // @ts-expect-error - mongoose global var
   cached = (global as unknown as { mongoose: { conn: typeof mongoose | null; promise: Promise<typeof mongoose> | null } }).mongoose = { conn: null, promise: null };
 }
 
