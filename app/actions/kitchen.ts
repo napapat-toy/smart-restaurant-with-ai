@@ -1,16 +1,30 @@
 "use server";
 
-import { mockOrders, Order } from "@/data/mockDb";
+import connectToDatabase from "@/lib/mongodb";
+import { Order } from "@/models/Order";
 
 export async function getActiveOrders() {
-  // Return orders that are not 'Paid' or 'Cancelled'
-  return mockOrders.filter(o => ['Pending', 'Cooking'].includes(o.status));
+  await connectToDatabase();
+  const orders = await Order.find({ status: { $in: ['Pending', 'Cooking'] } })
+    .sort({ createdAt: 1 })
+    .lean();
+    
+  return orders.map((o: any) => ({
+    id: o._id.toString(),
+    tableId: o.tableId,
+    items: o.items,
+    totalAmount: o.totalAmount,
+    status: o.status,
+    createdAt: o.createdAt,
+  }));
 }
 
-export async function updateOrderStatus(orderId: string, status: Order['status']) {
-  const order = mockOrders.find(o => o.id === orderId);
+export async function updateOrderStatus(orderId: string, status: string) {
+  await connectToDatabase();
+  const order = await Order.findById(orderId);
   if (order) {
-    order.status = status;
+    order.status = status as any;
+    await order.save();
     return { success: true };
   }
   return { success: false };

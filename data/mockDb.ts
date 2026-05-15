@@ -12,6 +12,7 @@ export type Table = {
   id: string;
   tableNumber: string;
   status: 'Available' | 'Occupied';
+  token: string;
 };
 
 export type OrderItem = {
@@ -91,16 +92,16 @@ export const mockMenuItems: MenuItem[] = [
 ];
 
 export const mockTables: Table[] = [
-  { id: "t1", tableNumber: "1", status: "Available" },
-  { id: "t2", tableNumber: "2", status: "Occupied" },
-  { id: "t3", tableNumber: "3", status: "Available" },
-  { id: "t4", tableNumber: "4", status: "Available" },
-  { id: "t5", tableNumber: "5", status: "Occupied" },
-  { id: "t6", tableNumber: "6", status: "Available" },
-  { id: "t7", tableNumber: "7", status: "Available" },
-  { id: "t8", tableNumber: "8", status: "Occupied" },
-  { id: "t9", tableNumber: "9", status: "Available" },
-  { id: "t10", tableNumber: "10", status: "Available" },
+  { id: "t1", tableNumber: "1", status: "Available", token: "tok_t1_xyz" },
+  { id: "t2", tableNumber: "2", status: "Occupied", token: "tok_t2_xyz" },
+  { id: "t3", tableNumber: "3", status: "Available", token: "tok_t3_xyz" },
+  { id: "t4", tableNumber: "4", status: "Available", token: "tok_t4_xyz" },
+  { id: "t5", tableNumber: "5", status: "Occupied", token: "tok_t5_xyz" },
+  { id: "t6", tableNumber: "6", status: "Available", token: "tok_t6_xyz" },
+  { id: "t7", tableNumber: "7", status: "Available", token: "tok_t7_xyz" },
+  { id: "t8", tableNumber: "8", status: "Occupied", token: "tok_t8_xyz" },
+  { id: "t9", tableNumber: "9", status: "Available", token: "tok_t9_xyz" },
+  { id: "t10", tableNumber: "10", status: "Available", token: "tok_t10_xyz" },
 ];
 
-export let mockOrders: Order[] = [];
+export const mockOrders: Order[] = [];

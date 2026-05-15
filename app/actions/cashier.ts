@@ -1,55 +1,129 @@
 "use server";
 
-import { mockOrders, mockTables, Order, Table } from "@/data/mockDb";
+import connectToDatabase from "@/lib/mongodb";
+import { Order } from "@/models/Order";
+import { Table } from "@/models/Table";
 
-export type TableWithBilling = Table & {
-  unpaidOrders: Order[];
+export type TableWithBilling = {
+  id: string;
+  tableNumber: string;
+  status: "Available" | "Occupied";
+  token: string;
+  unpaidOrders: {
+    id: string;
+    createdAt: string;
+    status: string;
+    items: { name: string; quantity: number; price: number; }[];
+    totalAmount: number;
+  }[];
   totalAmount: number;
 };
 
 export async function getTablesWithBilling(): Promise<TableWithBilling[]> {
-  return mockTables.map(table => {
-    // Orders that belong to this table and are not Paid or Cancelled
-    const unpaidOrders = mockOrders.filter(
-      o => (o.tableId === table.id || o.tableId === table.tableNumber) && 
-      !['Paid', 'Cancelled'].includes(o.status)
-    );
+  await connectToDatabase();
+  
+  const tables = await Table.find().lean();
+  const allUnpaidOrders = await Order.find({ status: { $nin: ['Paid', 'Cancelled'] } }).lean();
+
+  const tablesWithBilling = tables.map((table: any) => {
+    // Match order's tableId with the table's tableNumber
+    const unpaidOrders = allUnpaidOrders.filter(o => o.tableId === table.tableNumber).map((o: any) => ({
+      ...o,
+      id: o._id.toString(),
+      _id: undefined
+    }));
     
     const totalAmount = unpaidOrders.reduce((sum, order) => sum + order.totalAmount, 0);
 
-    // If a table was marked occupied but has no orders (maybe just started ordering but didn't submit)
-    // we just use the real mockTables status, but typically if they have unpaid orders, they are Occupied.
-    if (unpaidOrders.length > 0 && table.status !== 'Occupied') {
-      table.status = 'Occupied'; // Auto-correct status if there are unpaid orders
-    } else if (unpaidOrders.length === 0 && table.status === 'Occupied') {
-      // If they somehow have no unpaid orders but are occupied, we might leave them Occupied
-      // because they might be looking at the menu.
-    }
-
     return {
-      ...table,
+      id: table._id.toString(),
+      tableNumber: table.tableNumber,
+      status: table.status,
+      token: table.token,
       unpaidOrders,
       totalAmount
     };
   });
+  
+  return tablesWithBilling;
 }
 
 export async function processPayment(tableId: string) {
-  // Mark all unpaid orders for this table as 'Paid'
-  const unpaidOrders = mockOrders.filter(
-    o => (o.tableId === tableId || o.tableId === mockTables.find(t => t.id === tableId)?.tableNumber) && 
-    !['Paid', 'Cancelled'].includes(o.status)
-  );
+  await connectToDatabase();
+  
+  const table = await Table.findById(tableId);
+  if (!table) return { success: false, error: "Table not found" };
 
-  unpaidOrders.forEach(order => {
-    order.status = 'Paid';
+  // Find unpaid orders for this table
+  const unpaidOrders = await Order.find({ 
+    tableId: table.tableNumber,
+    status: { $nin: ['Paid', 'Cancelled'] } 
   });
 
-  // Free up the table
-  const table = mockTables.find(t => t.id === tableId || t.tableNumber === tableId);
-  if (table) {
-    table.status = 'Available';
+  for (const order of unpaidOrders) {
+    order.status = 'Paid';
+    await order.save();
   }
 
+  // Free up the table and rotate the token to invalidate the old QR
+  table.status = 'Available';
+  table.token = "tok_" + Math.random().toString(36).substring(2, 9);
+  await table.save();
+
   return { success: true, paidCount: unpaidOrders.length };
+}
+
+export async function openTableSession(tableId: string) {
+  await connectToDatabase();
+  const table = await Table.findById(tableId);
+  if (!table) return { success: false, error: "Table not found" };
+
+  table.status = 'Occupied';
+  await table.save();
+
+  return { success: true };
+}
+
+export async function cancelTableSession(tableId: string) {
+  await connectToDatabase();
+  const table = await Table.findById(tableId);
+  if (!table) return { success: false, error: "Table not found" };
+
+  table.status = 'Available';
+  table.token = "tok_" + Math.random().toString(36).substring(2, 9);
+  await table.save();
+
+  // Also cancel any pending/cooking orders for this table just in case
+  await Order.updateMany(
+    { tableId: table.tableNumber, status: { $nin: ['Paid', 'Cancelled'] } },
+    { status: 'Cancelled' }
+  );
+
+  return { success: true };
+}
+
+export async function moveTable(oldTableId: string, newTableId: string) {
+  await connectToDatabase();
+  const oldTable = await Table.findById(oldTableId);
+  const newTable = await Table.findById(newTableId);
+
+  if (!oldTable || !newTable) return { success: false, error: "Table not found" };
+  if (newTable.status === 'Occupied') return { success: false, error: "โต๊ะปลายทางไม่ว่าง" };
+
+  // Move all active orders to the new table number
+  await Order.updateMany(
+    { tableId: oldTable.tableNumber, status: { $nin: ['Paid', 'Cancelled'] } },
+    { tableId: newTable.tableNumber }
+  );
+
+  // Set new table as occupied
+  newTable.status = 'Occupied';
+  await newTable.save();
+
+  // Reset old table
+  oldTable.status = 'Available';
+  oldTable.token = "tok_" + Math.random().toString(36).substring(2, 9);
+  await oldTable.save();
+
+  return { success: true };
 }

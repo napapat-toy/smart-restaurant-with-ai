@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MenuItem } from "@/data/mockDb";
 
 export type CartItem = { item: MenuItem; quantity: number };
@@ -6,6 +6,29 @@ export type CartItem = { item: MenuItem; quantity: number };
 export function useCart() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  // Load from LocalStorage
+  useEffect(() => {
+    try {
+      const savedCart = localStorage.getItem("cart");
+      const savedNotes = localStorage.getItem("itemNotes");
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      if (savedCart) setCart(JSON.parse(savedCart));
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      if (savedNotes) setItemNotes(JSON.parse(savedNotes));
+    } catch (e) {
+      console.error("Failed to load cart from local storage", e);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Save to LocalStorage
+  useEffect(() => {
+    if (!isLoaded) return;
+    localStorage.setItem("cart", JSON.stringify(cart));
+    localStorage.setItem("itemNotes", JSON.stringify(itemNotes));
+  }, [cart, itemNotes, isLoaded]);
 
   const addToCart = (item: MenuItem) => {
     setCart((prev) => {

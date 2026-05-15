@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { getTablesWithBilling, processPayment, TableWithBilling } from "@/app/actions/cashier";
-import { Calculator, CheckCircle2, ChevronRight, ReceiptText, Users, X, Clock } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { getTablesWithBilling, processPayment, openTableSession, cancelTableSession, moveTable, TableWithBilling } from "@/app/actions/cashier";
+import { Calculator, CheckCircle2, ChevronRight, ReceiptText, Users, X, Clock, Printer, QrCode, Ban, ArrowRightLeft } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 import { usePolling } from "@/app/hooks/usePolling";
 
@@ -12,6 +13,10 @@ export default function CashierClient() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const [printModalOpen, setPrintModalOpen] = useState(false);
+  const printRef = useRef<HTMLDivElement>(null);
+  
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
   const fetchTables = useCallback(async () => {
     const data = await getTablesWithBilling();
@@ -44,6 +49,73 @@ export default function CashierClient() {
       setTimeout(() => setShowSuccess(false), 3000);
     } else {
       alert("เกิดข้อผิดพลาดในการชำระเงิน");
+    }
+  };
+
+  const handleOpenTable = async () => {
+    if (!selectedTable) return;
+    setIsProcessing(true);
+    const result = await openTableSession(selectedTable.id);
+    setIsProcessing(false);
+    if (result.success) {
+      setPrintModalOpen(true);
+      fetchTables();
+    } else {
+      alert("ไม่สามารถเปิดโต๊ะได้");
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+    setPrintModalOpen(false);
+  };
+
+  const handleCancelTable = async () => {
+    if (!selectedTable) return;
+    if (!confirm(`คุณแน่ใจหรือไม่ที่จะยกเลิกโต๊ะ ${selectedTable.tableNumber}? (ออเดอร์ทั้งหมดจะถูกยกเลิก)`)) return;
+    setIsProcessing(true);
+    const result = await cancelTableSession(selectedTable.id);
+    setIsProcessing(false);
+    if (result.success) {
+      setSelectedTable(null);
+      fetchTables();
+    } else {
+      alert("เกิดข้อผิดพลาด: " + result.error);
+    }
+  };
+
+  const handleMoveTable = async () => {
+    if (!selectedTable) return;
+    const availableTables = tables.filter(t => t.status === 'Available');
+    if (availableTables.length === 0) {
+      alert("ไม่มีโต๊ะว่างให้ย้ายในขณะนี้");
+      return;
+    }
+    
+    // Create a simple prompt string showing available tables
+    const availableNumbers = availableTables.map(t => t.tableNumber).join(", ");
+    const destNumber = prompt(`ย้ายจากโต๊ะ ${selectedTable.tableNumber}\nโต๊ะที่ว่าง: ${availableNumbers}\n\nกรุณาพิมพ์หมายเลขโต๊ะปลายทาง:`);
+    
+    if (!destNumber) return;
+    
+    const targetTable = availableTables.find(t => t.tableNumber === destNumber);
+    if (!targetTable) {
+      alert("หมายเลขโต๊ะไม่ถูกต้อง หรือโต๊ะนั้นไม่ว่าง");
+      return;
+    }
+
+    if (!confirm(`ยืนยันการย้ายโต๊ะ ${selectedTable.tableNumber} ไปยังโต๊ะ ${targetTable.tableNumber} หรือไม่?`)) return;
+
+    setIsProcessing(true);
+    const result = await moveTable(selectedTable.id, targetTable.id);
+    setIsProcessing(false);
+    
+    if (result.success) {
+      setSelectedTable(null);
+      fetchTables();
+      alert(`ย้ายโต๊ะสำเร็จ! โปรดพิมพ์ QR Code ใหม่ให้โต๊ะ ${targetTable.tableNumber}`);
+    } else {
+      alert("เกิดข้อผิดพลาด: " + result.error);
     }
   };
 
@@ -143,22 +215,58 @@ export default function CashierClient() {
               </h2>
               <p className="text-slate-400 text-sm mt-1">{selectedTable.unpaidOrders.length} ออเดอร์ที่ยังไม่ชำระเงิน</p>
             </div>
-            <button
-              onClick={() => { setSelectedTable(null); setIsMember(false); }}
-              className="p-2 bg-slate-800 text-slate-300 hover:text-white rounded-full transition-colors md:hidden"
-            >
-              <X size={20} />
-            </button>
+            <div className="flex items-center gap-2">
+              {selectedTable.status === 'Occupied' && (
+                <>
+                  <button onClick={handleMoveTable} disabled={isProcessing} className="p-2 bg-slate-800 text-slate-300 hover:text-white hover:bg-blue-600 rounded-full transition-colors" title="ย้ายโต๊ะ">
+                    <ArrowRightLeft size={18} />
+                  </button>
+                  <button onClick={handleCancelTable} disabled={isProcessing} className="p-2 bg-slate-800 text-slate-300 hover:text-white hover:bg-rose-600 rounded-full transition-colors" title="ยกเลิกโต๊ะ">
+                    <Ban size={18} />
+                  </button>
+                </>
+              )}
+              <button
+                onClick={() => { setSelectedTable(null); setIsMember(false); }}
+                className="p-2 bg-slate-800 text-slate-300 hover:text-white rounded-full transition-colors md:hidden ml-2"
+              >
+                <X size={20} />
+              </button>
+            </div>
           </header>
 
           <div className="flex-1 overflow-y-auto p-6 bg-slate-50">
             {selectedTable.unpaidOrders.length === 0 ? (
-              <div className="text-center text-slate-400 mt-20 flex flex-col items-center">
-                <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4">
-                  <CheckCircle2 size={32} className="text-slate-300" />
+              <div className="text-center mt-10 flex flex-col items-center max-w-sm mx-auto">
+                <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 mb-6 flex flex-col items-center">
+                  <div className="bg-blue-50 text-blue-600 p-3 rounded-2xl mb-4">
+                    <QrCode size={32} />
+                  </div>
+                  <h3 className="font-bold text-slate-900 text-lg mb-2">เปิดโต๊ะและออก QR Code</h3>
+                  <p className="text-sm text-slate-500 mb-6">ออก QR Code สำหรับสั่งอาหารให้ลูกค้านำไปที่โต๊ะ {selectedTable.tableNumber}</p>
+                  
+                  {selectedTable.status === 'Available' ? (
+                    <button
+                      onClick={handleOpenTable}
+                      disabled={isProcessing}
+                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white font-medium py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
+                    >
+                      {isProcessing ? "กำลังประมวลผล..." : <><Printer size={18} /> พิมพ์ QR Code ให้ลูกค้า</>}
+                    </button>
+                  ) : (
+                    <div className="w-full">
+                      <div className="bg-amber-50 text-amber-700 text-sm font-medium p-3 rounded-xl mb-4 border border-amber-200 flex items-center justify-center gap-2">
+                        โต๊ะนี้เปิดใช้งานแล้ว (แต่ยังไม่ได้สั่งอาหาร)
+                      </div>
+                      <button
+                        onClick={() => setPrintModalOpen(true)}
+                        className="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-3 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md"
+                      >
+                        <Printer size={18} /> พิมพ์ QR Code ซ้ำ
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <p className="font-medium text-slate-500">ไม่มีบิลค้างชำระ</p>
-                <p className="text-sm mt-1">โต๊ะนี้สามารถรับลูกค้าใหม่ได้เลย</p>
               </div>
             ) : (
               <div className="space-y-6">
@@ -231,6 +339,50 @@ export default function CashierClient() {
           </div>
         </div>
       )}
+      {/* Print Modal Overlay */}
+      {printModalOpen && selectedTable && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 print:bg-white print:p-0">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl print:shadow-none print:w-full print:max-w-none print:p-0 print:m-0">
+            
+            {/* The Slip to Print */}
+            <div ref={printRef} className="flex flex-col items-center text-center pb-8 border-b-2 border-dashed border-slate-200 print:border-none print:pb-0">
+              <h2 className="text-xl font-bold text-slate-900 mb-1">Smart Restaurant</h2>
+              <p className="text-sm text-slate-500 mb-6">สแกนเพื่อสั่งอาหาร (Scan to Order)</p>
+              
+              <div className="p-4 bg-white border-2 border-slate-900 rounded-2xl mb-6">
+                <QRCodeSVG
+                  value={`${baseUrl}?table=${selectedTable.tableNumber}&token=${selectedTable.token}`}
+                  size={200}
+                  level="H"
+                />
+              </div>
+
+              <div className="text-3xl font-black text-slate-900 flex items-center gap-2 mb-2">
+                <span className="text-lg font-medium text-slate-500">TABLE</span>
+                {selectedTable.tableNumber}
+              </div>
+              <p className="text-xs text-slate-400 font-mono break-all px-4">{selectedTable.token}</p>
+            </div>
+
+            {/* Print Controls (Hidden during actual print) */}
+            <div className="flex gap-3 mt-8 print:hidden">
+              <button 
+                onClick={() => setPrintModalOpen(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-xl transition-colors"
+              >
+                ปิดหน้าต่าง
+              </button>
+              <button 
+                onClick={handlePrint}
+                className="flex-[2] py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-xl flex justify-center items-center gap-2 transition-all shadow-md"
+              >
+                <Printer size={18} /> สั่งปรินต์
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

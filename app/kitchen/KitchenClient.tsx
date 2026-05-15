@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { getActiveOrders, updateOrderStatus } from "@/app/actions/kitchen";
 import { Order } from "@/data/mockDb";
 import { Clock, ChefHat, CheckCircle, Bell } from "lucide-react";
@@ -25,6 +25,32 @@ export default function KitchenClient() {
 
   const pendingOrders = orders.filter(o => o.status === 'Pending');
   const cookingOrders = orders.filter(o => o.status === 'Cooking');
+
+  // Audio Alert Logic
+  const prevPendingCount = useRef(0);
+  useEffect(() => {
+    if (pendingOrders.length > prevPendingCount.current) {
+      // Play beep sound when new order arrives
+      try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(880, ctx.currentTime); // Note A5
+        osc.frequency.exponentialRampToValueAtTime(1760, ctx.currentTime + 0.1); // Slide up to A6
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.5);
+      } catch (e) {
+        console.warn("Audio play failed, requires user interaction first");
+      }
+    }
+    prevPendingCount.current = pendingOrders.length;
+  }, [pendingOrders.length]);
 
   // Simple relative time formatter
   const timeAgo = (date: Date) => {

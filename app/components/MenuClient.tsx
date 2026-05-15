@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { mockMenuItems, Order } from "@/data/mockDb";
-import { ShoppingCart, Plus, Minus, X, CheckCircle2, ReceiptText, Clock, ChefHat } from "lucide-react";
+import Image from "next/image";
+import { Order } from "@/data/mockDb";
+import { ShoppingCart, X, CheckCircle2, ReceiptText, Clock } from "lucide-react";
 import { submitOrder, getTableOrders, cancelOrder } from "@/app/actions/order";
 import { useCart } from "@/app/hooks/useCart";
 import { usePolling } from "@/app/hooks/usePolling";
@@ -11,7 +12,7 @@ import { StatusBadge } from "./ui/StatusBadge";
 
 
 
-export default function MenuClient({ tableNumber }: { tableNumber: string }) {
+export default function MenuClient({ tableNumber, token, initialMenuItems }: { tableNumber: string, token: string, initialMenuItems: any[] }) {
   const { cart, itemNotes, addToCart, removeFromCart, updateNote, clearCart, cartTotal, cartItemCount } = useCart();
 
   const [activeCategory, setActiveCategory] = useState<string>("All");
@@ -21,7 +22,7 @@ export default function MenuClient({ tableNumber }: { tableNumber: string }) {
   const [showSuccess, setShowSuccess] = useState(false);
   const [tableOrders, setTableOrders] = useState<Order[]>([]);
 
-  const categories = ["All", ...Array.from(new Set(mockMenuItems.map((i) => i.category)))];
+  const categories = ["All", ...Array.from(new Set(initialMenuItems.map((i) => i.category)))];
 
   const fetchHistory = useCallback(async () => {
     const orders = await getTableOrders(tableNumber);
@@ -36,13 +37,11 @@ export default function MenuClient({ tableNumber }: { tableNumber: string }) {
 
     const cartItemsData = cart.map(c => ({
       itemId: c.item.id,
-      name: c.item.name,
-      price: c.item.price,
       quantity: c.quantity,
       note: itemNotes[c.item.id] || ""
     }));
 
-    const result = await submitOrder(tableNumber, cartItemsData);
+    const result = await submitOrder(tableNumber, token, cartItemsData);
 
     setIsSubmitting(false);
 
@@ -54,7 +53,7 @@ export default function MenuClient({ tableNumber }: { tableNumber: string }) {
 
       setTimeout(() => setIsHistoryOpen(true), 1000);
     } else {
-      alert("เกิดข้อผิดพลาดในการสั่งอาหาร กรุณาลองใหม่อีกครั้ง");
+      alert(result.error || "เกิดข้อผิดพลาดในการสั่งอาหาร กรุณาลองใหม่อีกครั้ง");
     }
   };
 
@@ -69,8 +68,8 @@ export default function MenuClient({ tableNumber }: { tableNumber: string }) {
   };
 
   const filteredItems = activeCategory === "All"
-    ? mockMenuItems
-    : mockMenuItems.filter((i) => i.category === activeCategory);
+    ? initialMenuItems
+    : initialMenuItems.filter((i) => i.category === activeCategory);
 
   return (
     <div className="pb-28 max-w-md mx-auto min-h-screen bg-slate-50 relative">
@@ -125,9 +124,14 @@ export default function MenuClient({ tableNumber }: { tableNumber: string }) {
           const cartItem = cart.find((c) => c.item.id === item.id);
           return (
             <div key={item.id} className="card-base flex gap-4 hover:shadow-md transition-shadow">
-              <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-slate-100 shadow-inner">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+              <div className="relative w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-slate-100 shadow-inner">
+                <Image 
+                  src={item.image} 
+                  alt={item.name} 
+                  fill
+                  sizes="96px"
+                  className="object-cover" 
+                />
               </div>
               <div className="flex-1 flex flex-col justify-between">
                 <div>
