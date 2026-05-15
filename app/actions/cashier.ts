@@ -49,81 +49,101 @@ export async function getTablesWithBilling(): Promise<TableWithBilling[]> {
 }
 
 export async function processPayment(tableId: string) {
-  await connectToDatabase();
-  
-  const table = await Table.findById(tableId);
-  if (!table) return { success: false, error: "Table not found" };
+  try {
+    await connectToDatabase();
+    
+    const table = await Table.findById(tableId);
+    if (!table) return { success: false, error: "Table not found" };
 
-  // Find unpaid orders for this table
-  const unpaidOrders = await Order.find({ 
-    tableId: table.tableNumber,
-    status: { $nin: ['Paid', 'Cancelled'] } 
-  });
+    // Find unpaid orders for this table
+    const unpaidOrders = await Order.find({ 
+      tableId: table.tableNumber,
+      status: { $nin: ['Paid', 'Cancelled'] } 
+    });
 
-  for (const order of unpaidOrders) {
-    order.status = 'Paid';
-    await order.save();
+    for (const order of unpaidOrders) {
+      order.status = 'Paid';
+      await order.save();
+    }
+
+    // Free up the table and rotate the token to invalidate the old QR
+    table.status = 'Available';
+    table.token = "tok_" + Math.random().toString(36).substring(2, 9);
+    await table.save();
+
+    return { success: true, paidCount: unpaidOrders.length };
+  } catch (error: any) {
+    console.error("Error processing payment:", error);
+    return { success: false, error: error.message || "An unexpected error occurred." };
   }
-
-  // Free up the table and rotate the token to invalidate the old QR
-  table.status = 'Available';
-  table.token = "tok_" + Math.random().toString(36).substring(2, 9);
-  await table.save();
-
-  return { success: true, paidCount: unpaidOrders.length };
 }
 
 export async function openTableSession(tableId: string) {
-  await connectToDatabase();
-  const table = await Table.findById(tableId);
-  if (!table) return { success: false, error: "Table not found" };
+  try {
+    await connectToDatabase();
+    const table = await Table.findById(tableId);
+    if (!table) return { success: false, error: "Table not found" };
 
-  table.status = 'Occupied';
-  await table.save();
+    table.status = 'Occupied';
+    await table.save();
 
-  return { success: true };
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error opening table session:", error);
+    return { success: false, error: error.message || "An unexpected error occurred." };
+  }
 }
 
 export async function cancelTableSession(tableId: string) {
-  await connectToDatabase();
-  const table = await Table.findById(tableId);
-  if (!table) return { success: false, error: "Table not found" };
+  try {
+    await connectToDatabase();
+    const table = await Table.findById(tableId);
+    if (!table) return { success: false, error: "Table not found" };
 
-  table.status = 'Available';
-  table.token = "tok_" + Math.random().toString(36).substring(2, 9);
-  await table.save();
+    table.status = 'Available';
+    table.token = "tok_" + Math.random().toString(36).substring(2, 9);
+    await table.save();
 
-  // Also cancel any pending/cooking orders for this table just in case
-  await Order.updateMany(
-    { tableId: table.tableNumber, status: { $nin: ['Paid', 'Cancelled'] } },
-    { status: 'Cancelled' }
-  );
+    // Also cancel any pending/cooking orders for this table just in case
+    await Order.updateMany(
+      { tableId: table.tableNumber, status: { $nin: ['Paid', 'Cancelled'] } },
+      { status: 'Cancelled' }
+    );
 
-  return { success: true };
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error canceling table session:", error);
+    return { success: false, error: error.message || "An unexpected error occurred." };
+  }
 }
 
 export async function moveTable(oldTableId: string, newTableId: string) {
-  await connectToDatabase();
-  const oldTable = await Table.findById(oldTableId);
-  const newTable = await Table.findById(newTableId);
+  try {
+    await connectToDatabase();
+    const oldTable = await Table.findById(oldTableId);
+    const newTable = await Table.findById(newTableId);
 
-  if (!oldTable || !newTable) return { success: false, error: "Table not found" };
-  if (newTable.status === 'Occupied') return { success: false, error: "โต๊ะปลายทางไม่ว่าง" };
+    if (!oldTable || !newTable) return { success: false, error: "Table not found" };
+    if (newTable.status === 'Occupied') return { success: false, error: "โต๊ะปลายทางไม่ว่าง" };
 
-  // Move all active orders to the new table number
-  await Order.updateMany(
-    { tableId: oldTable.tableNumber, status: { $nin: ['Paid', 'Cancelled'] } },
-    { tableId: newTable.tableNumber }
-  );
+    // Move all active orders to the new table number
+    await Order.updateMany(
+      { tableId: oldTable.tableNumber, status: { $nin: ['Paid', 'Cancelled'] } },
+      { tableId: newTable.tableNumber }
+    );
 
-  // Set new table as occupied
-  newTable.status = 'Occupied';
-  await newTable.save();
+    // Set new table as occupied
+    newTable.status = 'Occupied';
+    await newTable.save();
 
-  // Reset old table
-  oldTable.status = 'Available';
-  oldTable.token = "tok_" + Math.random().toString(36).substring(2, 9);
-  await oldTable.save();
+    // Reset old table
+    oldTable.status = 'Available';
+    oldTable.token = "tok_" + Math.random().toString(36).substring(2, 9);
+    await oldTable.save();
 
-  return { success: true };
+    return { success: true };
+  } catch (error: any) {
+    console.error("Error moving table:", error);
+    return { success: false, error: error.message || "An unexpected error occurred." };
+  }
 }
