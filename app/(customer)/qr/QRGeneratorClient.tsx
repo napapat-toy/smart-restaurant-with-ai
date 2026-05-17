@@ -3,9 +3,12 @@
 import { useState, useEffect } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { QrCode, Printer } from "lucide-react";
-import { mockTables } from "@/data/mockDb";
 
-export default function QRGeneratorClient() {
+interface QRGeneratorClientProps {
+  initialTables: any[];
+}
+
+export default function QRGeneratorClient({ initialTables }: QRGeneratorClientProps) {
   const [baseUrl, setBaseUrl] = useState("");
 
   useEffect(() => {
@@ -39,7 +42,7 @@ export default function QRGeneratorClient() {
       </header>
 
       <div className="max-w-6xl mx-auto grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6 print:grid-cols-3 print:gap-8">
-        {mockTables.map(table => {
+        {initialTables.map(table => {
           const url = `${baseUrl}?table=${table.tableNumber}&token=${table.token}`;
           return (
             <div key={table.id} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col items-center text-center print:border-slate-300 print:shadow-none break-inside-avoid">

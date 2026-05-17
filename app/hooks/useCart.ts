@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
-import { MenuItem } from "@/data/mockDb";
 
-export type CartItem = { item: MenuItem; quantity: number };
+export type CartItemOption = { groupName: string; choiceName: string; priceDelta: number };
+
+export type CartItem = { 
+  cartItemId: string; // Unique ID for cart management
+  item: any; 
+  quantity: number;
+  selectedOptions: CartItemOption[];
+};
 
 export function useCart() {
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -13,12 +19,10 @@ export function useCart() {
     try {
       const savedCart = localStorage.getItem("cart");
       const savedNotes = localStorage.getItem("itemNotes");
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       if (savedCart) setCart(JSON.parse(savedCart));
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       if (savedNotes) setItemNotes(JSON.parse(savedNotes));
-    } catch (e) {
-      console.error("Failed to load cart from local storage", e);
+    } catch {
+      console.error("Failed to load cart from local storage");
     }
     setIsLoaded(true);
   }, []);
@@ -30,32 +34,48 @@ export function useCart() {
     localStorage.setItem("itemNotes", JSON.stringify(itemNotes));
   }, [cart, itemNotes, isLoaded]);
 
-  const addToCart = (item: MenuItem) => {
+  const addToCart = (item: any, selectedOptions: CartItemOption[] = []) => {
+    // Generate a unique ID based on item ID and selected options
+    const optionsHash = selectedOptions.map(o => `${o.groupName}:${o.choiceName}`).sort().join('|');
+    const cartItemId = `${item.id}-${optionsHash}`;
+
     setCart((prev) => {
-      const existing = prev.find((c) => c.item.id === item.id);
+      const existing = prev.find((c) => c.cartItemId === cartItemId);
       if (existing) {
-        return prev.map((c) => (c.item.id === item.id ? { ...c, quantity: c.quantity + 1 } : c));
+        return prev.map((c) => (c.cartItemId === cartItemId ? { ...c, quantity: c.quantity + 1 } : c));
       }
-      return [...prev, { item, quantity: 1 }];
+      return [...prev, { cartItemId, item, quantity: 1, selectedOptions }];
     });
   };
 
-  const removeFromCart = (itemId: string) => {
+  const removeFromCart = (cartItemId: string) => {
     setCart((prev) => {
-      const existing = prev.find((c) => c.item.id === itemId);
+      const existing = prev.find((c) => c.cartItemId === cartItemId);
       if (existing && existing.quantity > 1) {
-        return prev.map((c) => (c.item.id === itemId ? { ...c, quantity: c.quantity - 1 } : c));
+        return prev.map((c) => (c.cartItemId === cartItemId ? { ...c, quantity: c.quantity - 1 } : c));
       }
       
       const newNotes = { ...itemNotes };
-      delete newNotes[itemId];
+      delete newNotes[cartItemId];
+      setItemNotes(newNotes);
+      return prev.filter((c) => c.cartItemId !== cartItemId);
+    });
+  };
+
+  const removeAllOfItemFromCart = (itemId: string) => {
+    setCart((prev) => {
+      const itemsToRemove = prev.filter((c) => c.item.id === itemId);
+      const newNotes = { ...itemNotes };
+      itemsToRemove.forEach((c) => {
+        delete newNotes[c.cartItemId];
+      });
       setItemNotes(newNotes);
       return prev.filter((c) => c.item.id !== itemId);
     });
   };
 
-  const updateNote = (itemId: string, note: string) => {
-    setItemNotes((prev) => ({ ...prev, [itemId]: note }));
+  const updateNote = (cartItemId: string, note: string) => {
+    setItemNotes((prev) => ({ ...prev, [cartItemId]: note }));
   };
 
   const clearCart = () => {
@@ -63,7 +83,10 @@ export function useCart() {
     setItemNotes({});
   };
 
-  const cartTotal = cart.reduce((sum, c) => sum + c.item.price * c.quantity, 0);
+  const cartTotal = cart.reduce((sum, c) => {
+    const optionsTotal = c.selectedOptions?.reduce((s, o) => s + o.priceDelta, 0) || 0;
+    return sum + (c.item.price + optionsTotal) * c.quantity;
+  }, 0);
   const cartItemCount = cart.reduce((sum, c) => sum + c.quantity, 0);
 
   return {
@@ -71,6 +94,7 @@ export function useCart() {
     itemNotes,
     addToCart,
     removeFromCart,
+    removeAllOfItemFromCart,
     updateNote,
     clearCart,
     cartTotal,

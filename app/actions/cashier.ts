@@ -3,6 +3,8 @@
 import connectToDatabase from "@/lib/mongodb";
 import { Order } from "@/models/Order";
 import { Table } from "@/models/Table";
+import { verifyRole } from "./auth";
+import { generateSecureToken } from "@/lib/utils";
 
 export type TableWithBilling = {
   id: string;
@@ -20,6 +22,7 @@ export type TableWithBilling = {
 };
 
 export async function getTablesWithBilling(): Promise<TableWithBilling[]> {
+  await verifyRole(["admin", "cashier"]);
   await connectToDatabase();
   
   const tables = await Table.find().lean();
@@ -50,6 +53,7 @@ export async function getTablesWithBilling(): Promise<TableWithBilling[]> {
 
 export async function processPayment(tableId: string) {
   try {
+    await verifyRole(["admin", "cashier"]);
     await connectToDatabase();
     
     const table = await Table.findById(tableId);
@@ -68,7 +72,7 @@ export async function processPayment(tableId: string) {
 
     // Free up the table and rotate the token to invalidate the old QR
     table.status = 'Available';
-    table.token = "tok_" + Math.random().toString(36).substring(2, 9);
+    table.token = "tok_" + generateSecureToken(6);
     await table.save();
 
     return { success: true, paidCount: unpaidOrders.length };
@@ -80,6 +84,7 @@ export async function processPayment(tableId: string) {
 
 export async function openTableSession(tableId: string) {
   try {
+    await verifyRole(["admin", "cashier"]);
     await connectToDatabase();
     const table = await Table.findById(tableId);
     if (!table) return { success: false, error: "Table not found" };
@@ -96,12 +101,13 @@ export async function openTableSession(tableId: string) {
 
 export async function cancelTableSession(tableId: string) {
   try {
+    await verifyRole(["admin", "cashier"]);
     await connectToDatabase();
     const table = await Table.findById(tableId);
     if (!table) return { success: false, error: "Table not found" };
 
     table.status = 'Available';
-    table.token = "tok_" + Math.random().toString(36).substring(2, 9);
+    table.token = "tok_" + generateSecureToken(6);
     await table.save();
 
     // Also cancel any pending/cooking orders for this table just in case
@@ -119,6 +125,7 @@ export async function cancelTableSession(tableId: string) {
 
 export async function moveTable(oldTableId: string, newTableId: string) {
   try {
+    await verifyRole(["admin", "cashier"]);
     await connectToDatabase();
     const oldTable = await Table.findById(oldTableId);
     const newTable = await Table.findById(newTableId);

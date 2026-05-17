@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Prompt } from "next/font/google";
 import "./globals.css";
 
@@ -11,6 +11,13 @@ const prompt = Prompt({
 export const metadata: Metadata = {
   title: "Smart Restaurant",
   description: "QR Code Ordering System",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

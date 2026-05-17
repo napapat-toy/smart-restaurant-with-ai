@@ -12,6 +12,29 @@
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
   }
+  .bg-gradient-header {
+    @apply bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950;
+  }
+  .category-pill {
+    @apply whitespace-nowrap px-5 py-2 rounded-full text-xs font-bold tracking-wide transition-all duration-150 ease-out border active:scale-95 active:opacity-90;
+  }
+  .category-pill-active {
+    @apply bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 border-blue-600;
+  }
+  .category-pill-inactive {
+    @apply bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-50 hover:text-slate-800;
+  }
+  .glass-panel {
+    @apply bg-white/95 border-b border-slate-200/50 shadow-[0_12px_20px_-8px_rgba(0,0,0,0.08)];
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .safe-pt-header {
+    padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+  }
+  .safe-pb-cart {
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 @layer components {
@@ -24,6 +47,55 @@
   .card-base {
     @apply bg-white rounded-2xl p-4 shadow-sm border border-slate-100;
   }
+  .toast-success {
+    @apply absolute left-1/2 -translate-x-1/2 z-50 bg-emerald-600 text-white px-6 py-3 rounded-full shadow-lg flex items-center gap-2 whitespace-nowrap;
+    top: calc(1rem + env(safe-area-inset-top, 0px));
+    animation: toast-slide-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .badge-table-status {
+    @apply bg-white/10 border border-white/15 px-4 py-2 rounded-2xl flex items-center gap-2.5 shadow-inner;
+  }
+  .btn-header-action {
+    @apply bg-white/10 hover:bg-white/20 p-2.5 rounded-xl backdrop-blur-sm transition-all duration-150 ease-out shadow-inner active:scale-95 active:opacity-90;
+  }
+  .fade-edge-left {
+    @apply absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent pointer-events-none z-10;
+  }
+  .fade-edge-right {
+    @apply absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent pointer-events-none z-10;
+  }
+  .modal-header {
+    @apply bg-white p-5 flex items-center justify-between border-b border-slate-100 shadow-sm shrink-0;
+  }
+  .modal-close-btn {
+    @apply p-2 text-slate-400 hover:text-slate-600 bg-slate-50 rounded-full transition-colors;
+  }
+  .modal-footer {
+    @apply bg-white p-5 border-t border-slate-100 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)];
+  }
+  .sticky-top-wrapper {
+    @apply sticky top-0 z-30 shadow-[0_8px_30px_rgba(0,0,0,0.03)];
+  }
+  .flat-header {
+    @apply relative z-10 bg-slate-900 text-white px-6 pb-7 border-b border-slate-800/50 overflow-hidden;
+    padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
+  }
+  .restaurant-badge {
+    @apply text-[9px] font-bold uppercase tracking-[0.2em] text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded;
+  }
+  .floating-cart-container {
+    @apply fixed bottom-0 left-0 right-0 px-5 pt-5 pb-5 bg-gradient-to-t from-white via-white to-transparent max-w-md mx-auto z-40;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
+  }
+  .btn-floating-cart {
+    @apply w-full bg-blue-600 text-white rounded-2xl p-4 flex justify-between items-center shadow-xl shadow-blue-200 hover:bg-blue-700 transition-all duration-150 ease-out active:scale-95 active:opacity-90;
+  }
+  .cart-icon-wrapper {
+    @apply relative bg-white/20 p-2 rounded-xl;
+  }
+  .cart-badge {
+    @apply absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-sm border-2 border-blue-600;
+  }
 }
 
 @media print {
@@ -32,6 +104,46 @@
   }
   @page {
     margin: 1cm;
+  }
+}
+
+@keyframes toast-slide-in {
+  from {
+    transform: translateY(-1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Premium Styling Utilities */
+.backdrop-blur-premium {
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.skeleton-premium {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer-effect 1.6s infinite linear;
+}
+
+.active-press-micro {
+  @apply transition-all duration-150 ease-out active:scale-95 active:opacity-90;
+}
+
+.text-shadow-subtle {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+@keyframes shimmer-effect {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
   }
 }
 

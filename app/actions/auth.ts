@@ -79,3 +79,12 @@ async function setAuthCookie(role: "admin" | "cashier" | "kitchen") {
     path: "/",
   });
 }
+
+export async function verifyRole(allowedRoles: ("admin" | "cashier" | "kitchen")[]) {
+  const cookieStore = await cookies();
+  const role = cookieStore.get("staff_role")?.value;
+  if (!role || !allowedRoles.includes(role as any)) {
+    throw new Error("Unauthorized access - Access denied");
+  }
+  return role;
+}

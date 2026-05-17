@@ -6,7 +6,16 @@ import { Table } from "@/models/Table";
 import { Order } from "@/models/Order";
 import { RateLimit } from "@/models/RateLimit";
 
-export async function submitOrder(tableId: string, token: string, cartItems: { itemId: string, quantity: number, note?: string }[]) {
+export async function submitOrder(
+  tableId: string, 
+  token: string, 
+  cartItems: { 
+    itemId: string; 
+    quantity: number; 
+    note?: string; 
+    selectedOptions?: { groupName: string; choiceName: string; priceDelta: number }[] 
+  }[]
+) {
   try {
     await connectToDatabase();
 
@@ -47,24 +56,44 @@ export async function submitOrder(tableId: string, token: string, cartItems: { i
       let realMenuItem;
       try {
         realMenuItem = await MenuItem.findById(item.itemId);
-      } catch (err) {
+      } catch {
         throw new Error(`Invalid Menu Item ID: ${item.itemId}. (อาจเป็นข้อมูลเก่า กรุณาล้างตะกร้า)`);
       }
       
       if (!realMenuItem) throw new Error(`Menu item ${item.itemId} not found`);
 
-      totalAmount += realMenuItem.price * item.quantity;
+      // Verify the option prices securely by matching item.selectedOptions with realMenuItem.options
+      const verifiedOptions = (item.selectedOptions || []).map(opt => {
+        const optionGroup = (realMenuItem.options || []).find((g: any) => g.name === opt.groupName);
+        if (!optionGroup) throw new Error(`Option group ${opt.groupName} not found in menu item`);
+        
+        const choice = optionGroup.choices.find((c: any) => c.name === opt.choiceName);
+        if (!choice) throw new Error(`Choice ${opt.choiceName} not found in option group ${opt.groupName}`);
+        
+        return {
+          groupName: opt.groupName,
+          choiceName: opt.choiceName,
+          priceDelta: choice.priceDelta
+        };
+      });
+
+      const optionsTotal = verifiedOptions.reduce((sum, o) => sum + o.priceDelta, 0);
+      const finalPrice = realMenuItem.price + optionsTotal;
+      totalAmount += finalPrice * item.quantity;
+
       return {
         menuItemId: realMenuItem._id.toString(),
         name: realMenuItem.name,
-        price: realMenuItem.price,
+        price: finalPrice,
         quantity: item.quantity,
         note: item.note || "",
+        selectedOptions: verifiedOptions
       };
     }));
 
     const newOrder = new Order({
       tableId: table.tableNumber, // Use tableNumber as the identifier for simplicity
+      token: token, // Store active session token
       items: orderItems,
       totalAmount,
       status: "Pending",
@@ -83,17 +112,40 @@ export async function submitOrder(tableId: string, token: string, cartItems: { i
   }
 }
 
-export async function getTableOrders(tableId: string) {
+export async function getTableOrders(tableId: string, token?: string) {
   await connectToDatabase();
-  const orders = await Order.find({ tableId }).sort({ createdAt: -1 }).lean();
+  
+  const query: any = { tableId };
+  if (token) {
+    // Backward compatibility: match orders with current session token OR old orders without a token
+    query.$or = [
+      { token: token },
+      { token: { $exists: false } },
+      { token: "" },
+      { token: null }
+    ];
+  }
+  
+  const orders = await Order.find(query).sort({ createdAt: -1 }).lean();
   
   return orders.map((o: any) => ({
     id: o._id.toString(),
     tableId: o.tableId,
-    items: o.items,
+    items: (o.items || []).map((item: any) => ({
+      menuItemId: item.menuItemId,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity,
+      note: item.note || "",
+      selectedOptions: (item.selectedOptions || []).map((opt: any) => ({
+        groupName: opt.groupName,
+        choiceName: opt.choiceName,
+        priceDelta: opt.priceDelta
+      }))
+    })),
     totalAmount: o.totalAmount,
     status: o.status,
-    createdAt: o.createdAt,
+    createdAt: o.createdAt instanceof Date ? o.createdAt.toISOString() : (o.createdAt ? String(o.createdAt) : new Date().toISOString()),
   }));
 }
 
@@ -106,4 +158,10 @@ export async function cancelOrder(orderId: string) {
     return { success: true };
   }
   return { success: false, error: "Cannot cancel this order" };
+}
+
+export async function verifyTableSession(tableNumber: string, token: string): Promise<boolean> {
+  await connectToDatabase();
+  const table = await Table.findOne({ tableNumber });
+  return !!(table && table.token === token);
 }

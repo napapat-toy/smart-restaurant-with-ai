@@ -25,7 +25,7 @@ export default function LoginClient() {
         setIsLoading(false);
       }
       // If successful, the action will redirect
-    } catch (err) {
+    } catch {
       setError("เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
       setIsLoading(false);
     }

@@ -2,8 +2,10 @@
 
 import connectToDatabase from "@/lib/mongodb";
 import { Order } from "@/models/Order";
+import { verifyRole } from "./auth";
 
 export async function getActiveOrders() {
+  await verifyRole(["admin", "kitchen"]);
   await connectToDatabase();
   const orders = await Order.find({ status: { $in: ['Pending', 'Cooking'] } })
     .sort({ createdAt: 1 })
@@ -20,6 +22,7 @@ export async function getActiveOrders() {
 }
 
 export async function updateOrderStatus(orderId: string, status: string) {
+  await verifyRole(["admin", "kitchen"]);
   await connectToDatabase();
   const order = await Order.findById(orderId);
   if (order) {

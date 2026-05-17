@@ -1,5 +1,5 @@
-import MenuClient from "./components/MenuClient";
-import { getMenuItems } from "./actions/menu";
+import MenuClient from "@/app/components/MenuClient";
+import { getMenuData } from "@/app/actions/menu";
 import connectToDatabase from "@/lib/mongodb";
 import { Table } from "@/models/Table";
 
@@ -32,7 +32,7 @@ export default async function Home(props: { searchParams: Promise<{ table?: stri
     );
   }
 
-  const menuItems = await getMenuItems();
+  const { categories, items } = await getMenuData();
 
-  return <MenuClient tableNumber={table} token={token} initialMenuItems={menuItems} />;
+  return <MenuClient tableNumber={table} token={token} initialMenuItems={items} initialCategories={categories} />;
 }

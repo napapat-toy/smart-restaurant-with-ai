@@ -4,7 +4,8 @@ import { MenuItem } from "@/models/MenuItem";
 import { Table } from "@/models/Table";
 import { Order } from "@/models/Order";
 import { Settings } from "@/models/Settings";
-import { mockMenuItems, mockTables } from "@/data/mockDb";
+import { Category } from "@/models/Category";
+import { mockMenuItems, mockTables, mockCategories } from "./mockData";
 
 export async function GET() {
   try {
@@ -15,6 +16,10 @@ export async function GET() {
     await Table.deleteMany({});
     await Order.deleteMany({});
     await Settings.deleteMany({});
+    await Category.deleteMany({});
+
+    // Seed Categories
+    await Category.insertMany(mockCategories);
 
     // Seed Menu Items
     const menuItems = mockMenuItems.map(m => ({
@@ -23,7 +28,8 @@ export async function GET() {
       price: m.price,
       image: m.image,
       category: m.category,
-      isAvailable: m.isAvailable
+      isAvailable: m.isAvailable,
+      options: m.options || [] // Seed customizable choices & variations
     }));
     await MenuItem.insertMany(menuItems);
 
