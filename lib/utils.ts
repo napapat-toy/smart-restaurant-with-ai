@@ -93,34 +93,6 @@ export function translateOrderStatus(status: string): { text: string; colorClass
   }
 }
 
-/**
- * Standardized status translator and tailwind class mapper for table status.
- */
-export function translateTableStatus(status: string): { text: string; colorClass: string; bgClass: string; borderClass: string } {
-  switch (status) {
-    case "Occupied":
-      return { 
-        text: "มีลูกค้า (ใช้งานอยู่)", 
-        colorClass: "text-rose-700", 
-        bgClass: "bg-rose-50", 
-        borderClass: "border-rose-150" 
-      };
-    case "Vacant":
-      return { 
-        text: "ว่าง (พร้อมบริการ)", 
-        colorClass: "text-emerald-700", 
-        bgClass: "bg-emerald-50", 
-        borderClass: "border-emerald-150" 
-      };
-    default:
-      return { 
-        text: status || "ไม่ระบุ", 
-        colorClass: "text-slate-600", 
-        bgClass: "bg-slate-50", 
-        borderClass: "border-slate-150" 
-      };
-  }
-}
 
 /**
  * Generates a cryptographically secure random hexadecimal token.
@@ -128,4 +100,18 @@ export function translateTableStatus(status: string): { text: string; colorClass
  */
 export function generateSecureToken(bytesCount = 16): string {
   return crypto.randomBytes(bytesCount).toString("hex");
+}
+
+/**
+ * Formats a Date or timestamp relative to current time.
+ * @param date Date, string, or number representing a timestamp
+ * @returns Thai relative time (e.g. เมื่อกี้, 5 นาทีที่แล้ว)
+ */
+export function formatTimeAgo(date: Date | string | number): string {
+  if (!date) return "";
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return "";
+  const minutes = Math.floor((new Date().getTime() - d.getTime()) / 60000);
+  if (minutes < 1) return "เมื่อกี้";
+  return `${minutes} นาทีที่แล้ว`;
 }

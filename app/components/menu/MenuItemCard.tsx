@@ -4,6 +4,8 @@ import { useState } from "react";
 import Image from "next/image";
 import { Utensils, Trash2 } from "lucide-react";
 
+import { formatPrice } from "@/lib/utils";
+
 interface MenuItemCardProps {
   item: any;
   totalQuantityInCart: number;
@@ -38,7 +40,7 @@ export function MenuItemCard({ item, totalQuantityInCart, onOpenOptions, onRemov
           <p className="text-xs text-slate-500 line-clamp-2 mt-1 leading-relaxed">{item.description}</p>
         </div>
         <div className="flex justify-between items-center mt-3">
-          <span className="font-semibold text-blue-700">฿{item.price}</span>
+          <span className="font-semibold text-blue-700">{formatPrice(item.price)}</span>
 
           <div className="flex items-center gap-2">
             {totalQuantityInCart > 0 && (

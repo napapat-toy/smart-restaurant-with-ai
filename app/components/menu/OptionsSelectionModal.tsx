@@ -1,6 +1,8 @@
 "use client";
 
 import { X } from "lucide-react";
+import { formatPrice } from "@/lib/utils";
+
 
 interface OptionsSelectionModalProps {
   item: any | null;
@@ -25,7 +27,7 @@ export function OptionsSelectionModal({
         <header className="modal-header">
           <div>
             <h2 className="text-xl font-bold text-slate-900">{item.name}</h2>
-            <p className="text-sm text-slate-500 mt-1">฿{item.price}</p>
+            <p className="text-sm text-slate-500 mt-1">{formatPrice(item.price)}</p>
           </div>
           <button
             onClick={onClose}
@@ -72,7 +74,7 @@ export function OptionsSelectionModal({
                         {choice.name}
                       </span>
                       {choice.priceDelta > 0 && (
-                        <span className="text-blue-600 font-semibold">+ ฿{choice.priceDelta}</span>
+                        <span className="text-blue-600 font-semibold">+ {formatPrice(choice.priceDelta)}</span>
                       )}
                     </button>
                   );

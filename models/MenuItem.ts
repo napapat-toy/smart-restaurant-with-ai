@@ -19,6 +19,7 @@ export interface IMenuItem extends Document {
   image: string;
   category: string;
   isAvailable: boolean;
+  soldOutToday: boolean;
   options?: IMenuOptionGroup[];
 }
 
@@ -42,6 +43,7 @@ const MenuItemSchema = new Schema<IMenuItem>(
     image: { type: String, default: "" },
     category: { type: String, required: true },
     isAvailable: { type: Boolean, default: true },
+    soldOutToday: { type: Boolean, default: false },
     options: [MenuOptionGroupSchema],
   },
   { timestamps: true }

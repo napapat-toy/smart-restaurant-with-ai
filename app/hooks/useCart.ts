@@ -9,30 +9,55 @@ export type CartItem = {
   selectedOptions: CartItemOption[];
 };
 
-export function useCart() {
+export function useCart(tableNumber?: string, token?: string) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [itemNotes, setItemNotes] = useState<Record<string, string>>({});
   const [isLoaded, setIsLoaded] = useState(false);
 
+  const cartKey = tableNumber && token ? `cart_${tableNumber}_${token}` : "cart";
+  const notesKey = tableNumber && token ? `notes_${tableNumber}_${token}` : "itemNotes";
+
   // Load from LocalStorage
   useEffect(() => {
+    if (tableNumber && token) {
+      // Clean up old session carts/notes to save space
+      try {
+        const currentCartKey = `cart_${tableNumber}_${token}`;
+        const currentNotesKey = `notes_${tableNumber}_${token}`;
+        
+        // Collect keys to remove first to avoid modifying local storage while iterating
+        const keysToRemove: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key === "cart" || key === "itemNotes" || key.startsWith("cart_") || key.startsWith("notes_"))) {
+            if (key !== currentCartKey && key !== currentNotesKey) {
+              keysToRemove.push(key);
+            }
+          }
+        }
+        keysToRemove.forEach(key => localStorage.removeItem(key));
+      } catch (e) {
+        console.error("Local storage cleanup failed", e);
+      }
+    }
+
     try {
-      const savedCart = localStorage.getItem("cart");
-      const savedNotes = localStorage.getItem("itemNotes");
-      if (savedCart) setCart(JSON.parse(savedCart));
-      if (savedNotes) setItemNotes(JSON.parse(savedNotes));
+      const savedCart = localStorage.getItem(cartKey);
+      const savedNotes = localStorage.getItem(notesKey);
+      setCart(savedCart ? JSON.parse(savedCart) : []);
+      setItemNotes(savedNotes ? JSON.parse(savedNotes) : {});
     } catch {
       console.error("Failed to load cart from local storage");
     }
     setIsLoaded(true);
-  }, []);
+  }, [cartKey, notesKey, tableNumber, token]);
 
   // Save to LocalStorage
   useEffect(() => {
     if (!isLoaded) return;
-    localStorage.setItem("cart", JSON.stringify(cart));
-    localStorage.setItem("itemNotes", JSON.stringify(itemNotes));
-  }, [cart, itemNotes, isLoaded]);
+    localStorage.setItem(cartKey, JSON.stringify(cart));
+    localStorage.setItem(notesKey, JSON.stringify(itemNotes));
+  }, [cart, itemNotes, isLoaded, cartKey, notesKey]);
 
   const addToCart = (item: any, selectedOptions: CartItemOption[] = []) => {
     // Generate a unique ID based on item ID and selected options

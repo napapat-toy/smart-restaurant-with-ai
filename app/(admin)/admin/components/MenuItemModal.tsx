@@ -1,4 +1,7 @@
+"use client";
+
 import React from "react";
+import Image from "next/image";
 import { X, Plus, Trash2 } from "lucide-react";
 
 interface MenuItemModalProps {
@@ -252,12 +255,13 @@ export function MenuItemModal({
             {/* Image Preview */}
             {newMenu.image && !previewError ? (
               <div className="mt-4 relative w-full h-32 rounded-xl overflow-hidden border border-slate-200 bg-slate-50 flex items-center justify-center">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img 
+                <Image 
                   key={newMenu.image}
                   src={newMenu.image} 
                   alt="Preview" 
-                  className="w-full h-full object-cover" 
+                  fill
+                  unoptimized
+                  className="object-cover" 
                   onError={() => setPreviewError(true)}
                 />
               </div>

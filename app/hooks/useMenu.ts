@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { submitOrder, getTableOrders, cancelOrder, verifyTableSession } from "@/app/actions/order";
+import { getAIRecommendations } from "@/app/actions/recommendations";
 import { useCart } from "@/app/hooks/useCart";
 import { usePolling } from "@/app/hooks/usePolling";
 import type { CartItemOption } from "@/app/hooks/useCart";
@@ -24,7 +25,7 @@ export function useMenu({ tableNumber, token, initialMenuItems, initialCategorie
     clearCart, 
     cartTotal, 
     cartItemCount 
-  } = useCart();
+  } = useCart(tableNumber, token);
 
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -36,7 +37,54 @@ export function useMenu({ tableNumber, token, initialMenuItems, initialCategorie
   // Options Modal State
   const [optionsModalItem, setOptionsModalItem] = useState<any | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string[]>>({});
+  
+  // AI Recommendations State
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+  const [isLoadingRecs, setIsLoadingRecs] = useState<boolean>(false);
 
+  // Generate a key of unique item IDs in the cart to avoid triggering API calls on quantity or note edits
+  const uniqueCartItemsKey = cart
+    .map(c => c.item.id || c.item._id)
+    .sort()
+    .join(",");
+
+  // Load AI Recommendations when cart changes or cart drawer is opened
+  useEffect(() => {
+    if (!isModalOpen || cart.length === 0) {
+      return;
+    }
+    
+    let isMounted = true;
+    const loadRecommendations = async () => {
+      setIsLoadingRecs(true);
+      try {
+        const cartItemsData = cart.map(c => ({
+          id: c.item.id || c.item._id,
+          name: c.item.name,
+          category: c.item.category
+        }));
+        const recs = await getAIRecommendations(cartItemsData);
+        if (isMounted) {
+          setRecommendations(recs);
+        }
+      } catch (err) {
+        console.error("Failed to load recommendations", err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingRecs(false);
+        }
+      }
+    };
+
+    loadRecommendations();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isModalOpen, uniqueCartItemsKey]);
+
+  const [servedNotification, setServedNotification] = useState<string | null>(null);
+  
   const categories = initialCategories.length > 0 
     ? initialCategories.map(c => c.name) 
     : Array.from(new Set(initialMenuItems.map((i) => i.category)));
@@ -46,12 +94,52 @@ export function useMenu({ tableNumber, token, initialMenuItems, initialCategorie
     setTableOrders(orders);
   }, [tableNumber, token]);
 
-  usePolling(fetchHistory, 3000, isHistoryOpen);
+  // Poll if history is open OR if there are any active orders that we are waiting for (Pending/Cooking)
+  const hasActiveOrders = tableOrders.some(o => o.status === "Pending" || o.status === "Cooking");
+  usePolling(fetchHistory, 4000, isHistoryOpen || hasActiveOrders);
 
   // Load history immediately on mount to populate tableOrders for badge notifications & instant drawer loading
   useEffect(() => {
     fetchHistory();
   }, [fetchHistory]);
+
+  // Detect when an order transitioned to "Served"
+  const prevOrdersRef = useRef<any[]>([]);
+  useEffect(() => {
+    if (prevOrdersRef.current.length > 0 && tableOrders.length > 0) {
+      tableOrders.forEach(order => {
+        const prevOrder = prevOrdersRef.current.find((o: any) => o._id === order._id || o.id === order.id);
+        if (prevOrder && (prevOrder.status === "Pending" || prevOrder.status === "Cooking") && order.status === "Served") {
+          setServedNotification(`ออเดอร์ของโต๊ะ ${tableNumber} พร้อมเสิร์ฟแล้ว!`);
+          
+          // Double-pitch notification sound (660Hz -> 880Hz)
+          try {
+            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            const ctx = new AudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = "sine";
+            osc.frequency.setValueAtTime(660, ctx.currentTime);
+            osc.frequency.setValueAtTime(880, ctx.currentTime + 0.12);
+            gain.gain.setValueAtTime(0.15, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.5);
+            
+            // Trigger vibration on mobile devices
+            if (navigator.vibrate) {
+              navigator.vibrate([100, 50, 100]);
+            }
+          } catch (e) {
+            console.warn("Audio/vibe alert failed (user interaction required):", e);
+          }
+        }
+      });
+    }
+    prevOrdersRef.current = tableOrders;
+  }, [tableOrders, tableNumber]);
 
   // Poll to verify table session validity. If the session has been terminated/rotated (payment completed),
   // clear localStorage and force refresh to trigger the "Link Expired" state.
@@ -171,7 +259,11 @@ export function useMenu({ tableNumber, token, initialMenuItems, initialCategorie
           return { ...prev, [groupName]: [...groupSelections, choiceName] };
         }
       } else {
-        return { ...prev, [groupName]: [choiceName] };
+        if (groupSelections.includes(choiceName)) {
+          return { ...prev, [groupName]: [] };
+        } else {
+          return { ...prev, [groupName]: [choiceName] };
+        }
       }
     });
   };
@@ -190,8 +282,12 @@ export function useMenu({ tableNumber, token, initialMenuItems, initialCategorie
     optionsModalItem,
     selectedOptions,
     categories,
+    recommendations,
+    isLoadingRecs,
     setIsModalOpen,
     setIsHistoryOpen,
+    servedNotification,
+    setServedNotification,
     addToCart,
     removeFromCart,
     removeAllOfItemFromCart,

@@ -1,10 +1,12 @@
 "use server";
 
 import connectToDatabase from "@/lib/mongodb";
-import { Order } from "@/models/Order";
+import { Order, ACTIVE_ORDER_QUERY } from "@/models/Order";
 import { Table } from "@/models/Table";
 import { verifyRole } from "./auth";
 import { generateSecureToken } from "@/lib/utils";
+import { applyDiscountUsage } from "./discount";
+import { learnPairingsFromOrders } from "./recommendations";
 
 export type TableWithBilling = {
   id: string;
@@ -26,7 +28,7 @@ export async function getTablesWithBilling(): Promise<TableWithBilling[]> {
   await connectToDatabase();
   
   const tables = await Table.find().lean();
-  const allUnpaidOrders = await Order.find({ status: { $nin: ['Paid', 'Cancelled'] } }).lean();
+  const allUnpaidOrders = await Order.find(ACTIVE_ORDER_QUERY).lean();
 
   const tablesWithBilling = tables.map((table: any) => {
     // Match order's tableId with the table's tableNumber
@@ -48,10 +50,20 @@ export async function getTablesWithBilling(): Promise<TableWithBilling[]> {
     };
   });
   
+  // Sort tables numerically by tableNumber
+  tablesWithBilling.sort((a, b) => {
+    const numA = parseInt(a.tableNumber, 10);
+    const numB = parseInt(b.tableNumber, 10);
+    if (isNaN(numA) || isNaN(numB)) {
+      return a.tableNumber.localeCompare(b.tableNumber);
+    }
+    return numA - numB;
+  });
+  
   return tablesWithBilling;
 }
 
-export async function processPayment(tableId: string) {
+export async function processPayment(tableId: string, discountCode?: string, discountAmount?: number) {
   try {
     await verifyRole(["admin", "cashier"]);
     await connectToDatabase();
@@ -62,18 +74,43 @@ export async function processPayment(tableId: string) {
     // Find unpaid orders for this table
     const unpaidOrders = await Order.find({ 
       tableId: table.tableNumber,
-      status: { $nin: ['Paid', 'Cancelled'] } 
+      ...ACTIVE_ORDER_QUERY 
     });
+
+    if (discountAmount && discountAmount > 0) {
+      const totalBeforeDiscount = unpaidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+      if (totalBeforeDiscount > 0) {
+        let remainingDiscount = discountAmount;
+        for (let i = 0; i < unpaidOrders.length; i++) {
+          const order = unpaidOrders[i];
+          if (i === unpaidOrders.length - 1) {
+            order.totalAmount = Math.max(0, order.totalAmount - remainingDiscount);
+          } else {
+            const share = Math.min(order.totalAmount, Math.round((order.totalAmount / totalBeforeDiscount) * discountAmount));
+            order.totalAmount = order.totalAmount - share;
+            remainingDiscount -= share;
+          }
+        }
+      }
+    }
 
     for (const order of unpaidOrders) {
       order.status = 'Paid';
       await order.save();
     }
 
+    // Apply discount usage count if a valid code was used
+    if (discountCode) {
+      await applyDiscountUsage(discountCode);
+    }
+
     // Free up the table and rotate the token to invalidate the old QR
     table.status = 'Available';
     table.token = "tok_" + generateSecureToken(6);
     await table.save();
+
+    // Fire-and-forget: update recommendation pairings from this new paid data
+    learnPairingsFromOrders().catch(() => {});
 
     return { success: true, paidCount: unpaidOrders.length };
   } catch (error: any) {
@@ -112,7 +149,7 @@ export async function cancelTableSession(tableId: string) {
 
     // Also cancel any pending/cooking orders for this table just in case
     await Order.updateMany(
-      { tableId: table.tableNumber, status: { $nin: ['Paid', 'Cancelled'] } },
+      { tableId: table.tableNumber, ...ACTIVE_ORDER_QUERY },
       { status: 'Cancelled' }
     );
 
@@ -133,10 +170,10 @@ export async function moveTable(oldTableId: string, newTableId: string) {
     if (!oldTable || !newTable) return { success: false, error: "Table not found" };
     if (newTable.status === 'Occupied') return { success: false, error: "โต๊ะปลายทางไม่ว่าง" };
 
-    // Move all active orders to the new table number
+    // Move all active orders to the new table number and copy the new table's token to keep them visible
     await Order.updateMany(
-      { tableId: oldTable.tableNumber, status: { $nin: ['Paid', 'Cancelled'] } },
-      { tableId: newTable.tableNumber }
+      { tableId: oldTable.tableNumber, ...ACTIVE_ORDER_QUERY },
+      { tableId: newTable.tableNumber, token: newTable.token }
     );
 
     // Set new table as occupied
@@ -145,7 +182,7 @@ export async function moveTable(oldTableId: string, newTableId: string) {
 
     // Reset old table
     oldTable.status = 'Available';
-    oldTable.token = "tok_" + Math.random().toString(36).substring(2, 9);
+    oldTable.token = "tok_" + generateSecureToken(6);
     await oldTable.save();
 
     return { success: true };

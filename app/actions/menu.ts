@@ -12,7 +12,8 @@ export const getMenuData = unstable_cache(
     // Fallback if no categories exist in the new model yet
     let categories = await Category.find().sort({ order: 1 }).lean();
     
-    const items = await MenuItem.find({ isAvailable: true }).lean();
+    // Exclude items that are unavailable OR sold out today
+    const items = await MenuItem.find({ isAvailable: true, soldOutToday: { $ne: true } }).lean();
     const formattedItems = items.map((item: any) => ({
       ...item,
       id: item._id.toString(),
@@ -31,5 +32,5 @@ export const getMenuData = unstable_cache(
     return { categories, items: formattedItems };
   },
   ['menu-items'],
-  { revalidate: 60 } // Revalidate every 60 seconds (ISR equivalent for Server Actions)
+  { revalidate: 30, tags: ['menu-items'] } // 30s revalidation + tag-based invalidation for sold-out
 );

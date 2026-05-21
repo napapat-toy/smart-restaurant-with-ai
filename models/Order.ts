@@ -25,6 +25,9 @@ export interface IOrder extends Document {
   updatedAt: Date;
 }
 
+export const ACTIVE_ORDER_QUERY = { status: { $nin: ["Paid", "Cancelled"] } };
+
+
 const OrderItemOptionSchema = new Schema<IOrderItemOption>(
   {
     groupName: { type: String, required: true },

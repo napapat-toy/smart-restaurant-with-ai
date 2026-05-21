@@ -11,15 +11,28 @@ import {
   UtensilsCrossed, 
   Grid,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  Zap,
+  Download,
+  Activity,
+  Users
 } from "lucide-react";
-import { getAnnualAnalytics, AnnualAnalyticsResult } from "@/app/actions/analytics";
+import { getAnnualAnalytics, getTodayAnalytics, AnnualAnalyticsResult, TodayAnalyticsResult } from "@/app/actions/analytics";
+import { learnPairingsFromOrders, getLearnedPairingsStatus } from "@/app/actions/recommendations";
+import { formatPrice } from "@/lib/utils";
+
 
 export function AnalyticsTab() {
   const currentYear = new Date().getFullYear();
   const [selectedYear, setSelectedYear] = useState<number>(currentYear);
   const [data, setData] = useState<AnnualAnalyticsResult | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+
+  // Today's Live Dashboard State
+  const [todayData, setTodayData] = useState<TodayAnalyticsResult | null>(null);
+  const [isTodayLoading, setIsTodayLoading] = useState(true);
+  const [recsStatus, setRecsStatus] = useState<{ pairsLearned: number; updatedAt: string | null } | null>(null);
+  const [isLearning, setIsLearning] = useState(false);
 
   const fetchAnalytics = async (year: number) => {
     setIsLoading(true);
@@ -33,9 +46,69 @@ export function AnalyticsTab() {
     }
   };
 
+  const fetchTodayAnalytics = async () => {
+    try {
+      const res = await getTodayAnalytics();
+      setTodayData(res);
+      const status = await getLearnedPairingsStatus();
+      setRecsStatus(status);
+    } catch (error) {
+      console.error("Failed to load today analytics:", error);
+    } finally {
+      setIsTodayLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchAnalytics(selectedYear);
   }, [selectedYear]);
+
+  useEffect(() => {
+    fetchTodayAnalytics();
+    // Poll every 30 seconds for live updates
+    const interval = setInterval(fetchTodayAnalytics, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleLearnPairings = async () => {
+    setIsLearning(true);
+    try {
+      const res = await learnPairingsFromOrders();
+      setRecsStatus(res);
+      alert(`อัปเดตกฎการแนะนำอาหารเสร็จสิ้น! เรียนรู้คู่เมนูใหม่ได้ทั้งหมด ${res.pairsLearned} รายการ`);
+    } catch (error) {
+      console.error("Failed to learn pairings:", error);
+      alert("เกิดข้อผิดพลาดในการอัปเดตกฎการแนะนำอาหาร");
+    } finally {
+      setIsLearning(false);
+    }
+  };
+
+  const handleExportCSV = () => {
+    if (!data) return;
+    
+    // Generate CSV for annual sales monthly breakdown
+    let csvContent = "\ufeff"; // BOM for UTF-8 Excel support
+    csvContent += "เดือน,ยอดขายทั้งหมด (บาท),จำนวนบิล,ยอดเฉลี่ยต่อบิล (บาท)\n";
+    
+    data.monthlyBreakdown.forEach(m => {
+      csvContent += `"${m.month}",${m.revenue},${m.ordersCount},${m.ordersCount > 0 ? (m.revenue / m.ordersCount).toFixed(2) : 0}\n`;
+    });
+    
+    csvContent += "\nรายการยอดนิยม,จำนวนที่ขายได้ (จาน)\n";
+    data.topItems.forEach(item => {
+      csvContent += `"${item.name}",${item.quantity}\n`;
+    });
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `sales_report_${selectedYear}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Find max monthly revenue to scale the custom CSS chart bar heights
   const maxMonthlyRevenue = data?.monthlyBreakdown 
@@ -44,8 +117,63 @@ export function AnalyticsTab() {
 
   return (
     <div className="space-y-6">
+      {/* Live Today's Dashboard Section */}
+      <div className="bg-slate-900 text-white rounded-3xl p-6 border border-slate-800 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-6 flex items-center gap-2">
+          <span className="relative flex h-3 w-3">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          </span>
+          <span className="text-xs font-bold text-emerald-400 tracking-wider uppercase">Live Today</span>
+        </div>
+
+        <h3 className="text-lg font-extrabold flex items-center gap-2 mb-6">
+          <Activity className="text-emerald-400" size={20} />
+          ภาพรวมของร้านวันนี้
+        </h3>
+
+        {isTodayLoading ? (
+          <div className="flex items-center justify-center py-6 text-slate-400">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500 mr-2"></div>
+            <span className="text-xs">กำลังคำนวณข้อมูลวันนี้...</span>
+          </div>
+        ) : todayData ? (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl">
+              <span className="text-slate-500 text-[10px] font-bold block uppercase">ยอดขายวันนี้</span>
+              <span className="text-2xl font-black text-emerald-400 block mt-1">{formatPrice(todayData.totalRevenue)}</span>
+            </div>
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl">
+              <span className="text-slate-500 text-[10px] font-bold block uppercase">จำนวนออเดอร์</span>
+              <span className="text-2xl font-black text-white block mt-1">{todayData.totalOrders} ออเดอร์</span>
+            </div>
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl">
+              <span className="text-slate-500 text-[10px] font-bold block uppercase">โต๊ะที่สั่งอาหารอยู่</span>
+              <span className="text-2xl font-black text-amber-400 block mt-1">{todayData.activeTables} โต๊ะ</span>
+            </div>
+            <div className="bg-slate-950/60 border border-slate-800/80 p-4 rounded-2xl">
+              <span className="text-slate-500 text-[10px] font-bold block uppercase">ออเดอร์กำลังปรุง</span>
+              <span className="text-2xl font-black text-blue-400 block mt-1">{todayData.activeOrders} รายการ</span>
+            </div>
+          </div>
+        ) : null}
+
+        {todayData && todayData.topItems.length > 0 && (
+          <div className="mt-5 pt-4 border-t border-slate-800/60 flex flex-wrap items-center gap-4 text-xs">
+            <span className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">เมนูฮิตวันนี้:</span>
+            <div className="flex flex-wrap gap-2">
+              {todayData.topItems.map((item, idx) => (
+                <span key={idx} className="bg-slate-950/80 border border-slate-800 px-3 py-1 rounded-full text-slate-300 font-medium">
+                  🔥 {item.name} ({item.quantity})
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Top Controls Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
         <div>
           <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <BarChart3 className="text-blue-600" />
@@ -54,7 +182,27 @@ export function AnalyticsTab() {
           <p className="text-xs text-slate-500 mt-1">วิเคราะห์ยอดขาย แนวโน้มความนิยม และการทำงานรายปีของห้องอาหาร</p>
         </div>
         
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+          {/* Export and Learn buttons */}
+          <button 
+            onClick={handleExportCSV}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 text-blue-700 hover:bg-blue-100 active:scale-95 text-xs font-bold rounded-2xl transition-all shadow-sm border border-blue-100/50"
+            title="ส่งออกรายงานยอดขายเป็น CSV สำหรับเปิดใน Excel"
+          >
+            <Download size={14} />
+            Export CSV
+          </button>
+
+          <button 
+            onClick={handleLearnPairings}
+            disabled={isLearning}
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 text-amber-700 hover:bg-amber-100 active:scale-95 text-xs font-bold rounded-2xl transition-all disabled:opacity-50 border border-amber-100/50"
+            title="วิเคราะห์ข้อมูลออเดอร์ในระบบเพื่อปรับปรุงการแนะนำคู่เมนูแบบเรียลไทม์"
+          >
+            <Zap size={14} className={isLearning ? "animate-pulse text-amber-500" : ""} />
+            {isLearning ? "กำลังวิเคราะห์..." : "อัปเดตกฎการแนะนำ"}
+          </button>
+
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2 w-full sm:w-auto">
             <Calendar size={16} className="text-slate-400" />
             <select
@@ -69,7 +217,10 @@ export function AnalyticsTab() {
           </div>
           
           <button 
-            onClick={() => fetchAnalytics(selectedYear)}
+            onClick={() => {
+              fetchAnalytics(selectedYear);
+              fetchTodayAnalytics();
+            }}
             disabled={isLoading}
             className="p-2.5 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-600 rounded-2xl transition-all disabled:opacity-50"
             title="รีเฟรชข้อมูล"
@@ -105,7 +256,7 @@ export function AnalyticsTab() {
               </div>
               <div className="mt-8">
                 <span className="text-xs text-blue-100 block">รายได้ประจำปี {data.year}</span>
-                <span className="text-3xl font-black tracking-tight mt-1 block">฿{data.totalRevenue.toLocaleString()}</span>
+                <span className="text-3xl font-black tracking-tight mt-1 block">{formatPrice(data.totalRevenue)}</span>
               </div>
             </div>
 
@@ -139,7 +290,7 @@ export function AnalyticsTab() {
               </div>
               <div className="mt-8 z-10">
                 <span className="text-xs text-slate-400 block">ยอดสั่งซื้อเฉลี่ย (AOV)</span>
-                <span className="text-3xl font-black text-slate-800 tracking-tight mt-1 block">฿{data.averageOrderValue.toLocaleString()}</span>
+                <span className="text-3xl font-black text-slate-800 tracking-tight mt-1 block">{formatPrice(data.averageOrderValue)}</span>
               </div>
             </div>
 
@@ -177,7 +328,7 @@ export function AnalyticsTab() {
                   <div key={index} className="flex-1 flex flex-col items-center min-w-[32px] group cursor-pointer">
                     {/* Tooltip on Hover */}
                     <div className="absolute mb-2 opacity-0 group-hover:opacity-100 transform translate-y-2 group-hover:translate-y-0 bg-slate-900 text-white text-[10px] font-bold px-2 py-1 rounded-lg transition-all duration-300 pointer-events-none whitespace-nowrap z-20 shadow-md">
-                      ฿{m.revenue.toLocaleString()} ({m.ordersCount} บิล)
+                      {formatPrice(m.revenue)} ({m.ordersCount} บิล)
                     </div>
                     {/* Bar */}
                     <div 
@@ -237,7 +388,7 @@ export function AnalyticsTab() {
                               <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">{item.category}</span>
                             </td>
                             <td className="py-3 text-center font-bold text-slate-600 text-sm">{item.quantity.toLocaleString()}</td>
-                            <td className="py-3 text-right font-black text-slate-800 text-sm">฿{item.revenue.toLocaleString()}</td>
+                            <td className="py-3 text-right font-black text-slate-800 text-sm">{formatPrice(item.revenue)}</td>
                           </tr>
                         );
                       })}
@@ -269,7 +420,7 @@ export function AnalyticsTab() {
                         <div key={idx} className="space-y-1">
                           <div className="flex justify-between text-xs font-bold text-slate-700">
                             <span>{cat.name}</span>
-                            <span>{sharePercentage.toFixed(0)}% (฿{cat.revenue.toLocaleString()})</span>
+                             <span>{sharePercentage.toFixed(0)}% ({formatPrice(cat.revenue)})</span>
                           </div>
                           <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
                             <div 
@@ -312,7 +463,7 @@ export function AnalyticsTab() {
                             <span className="text-[10px] text-slate-400 block">{table.ordersCount} บิลเสร็จสิ้น</span>
                           </div>
                         </div>
-                        <span className="text-xs font-black text-slate-800">฿{table.revenue.toLocaleString()}</span>
+                         <span className="text-xs font-black text-slate-800">{formatPrice(table.revenue)}</span>
                       </div>
                     ))}
                   </div>

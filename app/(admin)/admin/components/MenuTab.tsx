@@ -1,6 +1,10 @@
+"use client";
+
 import { useState } from "react";
 import Image from "next/image";
 import { Plus, Pencil, Trash2, Utensils } from "lucide-react";
+import { formatPrice } from "@/lib/utils";
+
 
 function AdminMenuImage({ src, alt }: { src: string; alt: string }) {
   const [imgError, setImgError] = useState(false);
@@ -72,7 +76,7 @@ export function MenuTab({
                 </td>
                 <td className="p-4 font-medium text-slate-900">{item.name}</td>
                 <td className="p-4 text-slate-500">{item.category}</td>
-                <td className="p-4 text-slate-900">฿{item.price}</td>
+                <td className="p-4 text-slate-900">{formatPrice(item.price)}</td>
                 <td className="p-4">
                   <button 
                     onClick={() => onToggleMenu(item._id, item.isAvailable)}

@@ -117,13 +117,7 @@ export async function getTableOrders(tableId: string, token?: string) {
   
   const query: any = { tableId };
   if (token) {
-    // Backward compatibility: match orders with current session token OR old orders without a token
-    query.$or = [
-      { token: token },
-      { token: { $exists: false } },
-      { token: "" },
-      { token: null }
-    ];
+    query.token = token;
   }
   
   const orders = await Order.find(query).sort({ createdAt: -1 }).lean();

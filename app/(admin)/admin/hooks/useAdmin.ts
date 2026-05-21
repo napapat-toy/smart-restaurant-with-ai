@@ -19,7 +19,7 @@ interface UseAdminProps {
 }
 
 export function useAdmin({ initialData }: UseAdminProps) {
-  const [activeTab, setActiveTab] = useState<"pins" | "menu" | "tables" | "categories" | "analytics">("pins");
+  const [activeTab, setActiveTab] = useState<"pins" | "menu" | "tables" | "categories" | "analytics" | "discounts" | "orders">("pins");
   const [data, setData] = useState(initialData);
   const [isLoading, setIsLoading] = useState(false);
   const [isAddMenuModalOpen, setIsAddMenuModalOpen] = useState(false);

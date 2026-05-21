@@ -3,11 +3,15 @@ import type { NextRequest } from 'next/server';
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const roleCookie = request.cookies.get('staff_role')?.value;
+  const adminCookie = request.cookies.get('staff_role_admin')?.value;
+  const cashierCookie = request.cookies.get('staff_role_cashier')?.value;
+  const kitchenCookie = request.cookies.get('staff_role_kitchen')?.value;
+  const legacyCookie = request.cookies.get('staff_role')?.value;
 
   // Protect Admin route
   if (pathname.startsWith('/admin')) {
-    if (roleCookie !== 'admin') {
+    const hasAdmin = adminCookie === 'admin' || legacyCookie === 'admin';
+    if (!hasAdmin) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(loginUrl);
@@ -16,7 +20,8 @@ export function proxy(request: NextRequest) {
 
   // Protect Cashier route
   if (pathname.startsWith('/cashier')) {
-    if (roleCookie !== 'admin' && roleCookie !== 'cashier') {
+    const hasAccess = adminCookie === 'admin' || cashierCookie === 'cashier' || legacyCookie === 'admin' || legacyCookie === 'cashier';
+    if (!hasAccess) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(loginUrl);
@@ -25,7 +30,8 @@ export function proxy(request: NextRequest) {
 
   // Protect Kitchen route
   if (pathname.startsWith('/kitchen')) {
-    if (roleCookie !== 'admin' && roleCookie !== 'kitchen') {
+    const hasAccess = adminCookie === 'admin' || kitchenCookie === 'kitchen' || legacyCookie === 'admin' || legacyCookie === 'kitchen';
+    if (!hasAccess) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('callbackUrl', pathname);
       return NextResponse.redirect(loginUrl);

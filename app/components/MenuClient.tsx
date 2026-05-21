@@ -4,6 +4,8 @@ import { useState, useRef } from "react";
 import { ShoppingCart, CheckCircle2, ReceiptText } from "lucide-react";
 import { useMenu } from "@/app/hooks/useMenu";
 
+import { formatPrice } from "@/lib/utils";
+
 // Extracted Subcomponents
 import { MenuItemCard } from "./menu/MenuItemCard";
 import { OptionsSelectionModal } from "./menu/OptionsSelectionModal";
@@ -25,8 +27,12 @@ export default function MenuClient({ tableNumber, token, initialMenuItems, initi
     optionsModalItem,
     selectedOptions,
     categories,
+    recommendations,
+    isLoadingRecs,
     setIsModalOpen,
     setIsHistoryOpen,
+    servedNotification,
+    setServedNotification,
     addToCart,
     removeFromCart,
     removeAllOfItemFromCart,
@@ -82,6 +88,21 @@ export default function MenuClient({ tableNumber, token, initialMenuItems, initi
           <div className="toast-success">
             <CheckCircle2 size={20} />
             <span className="font-medium">ส่งรายการสั่งอาหารสำเร็จ!</span>
+          </div>
+        )}
+        {/* Served Notification Toast */}
+        {servedNotification && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-[calc(100%-2rem)] max-w-sm bg-emerald-600 text-white px-4 py-3.5 rounded-xl shadow-2xl flex items-center justify-between gap-3 border border-emerald-500/20 backdrop-blur-md transition-all duration-300">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl flex-shrink-0">🍽️</span>
+              <span className="font-semibold text-sm leading-tight">{servedNotification}</span>
+            </div>
+            <button 
+              onClick={() => setServedNotification(null)}
+              className="text-white/90 hover:text-white font-bold text-xs bg-emerald-700/60 hover:bg-emerald-700 px-3 py-1.5 rounded-lg transition"
+            >
+              ตกลง
+            </button>
           </div>
         )}
         {/* Flat Header Card */}
@@ -206,7 +227,7 @@ export default function MenuClient({ tableNumber, token, initialMenuItems, initi
               </div>
               <span className="font-medium text-sm">ดูรายการสั่งอาหาร</span>
             </div>
-            <span className="font-bold text-lg">฿{cartTotal}</span>
+            <span className="font-bold text-lg">{formatPrice(cartTotal)}</span>
           </button>
         </div>
       )}
@@ -218,11 +239,14 @@ export default function MenuClient({ tableNumber, token, initialMenuItems, initi
         itemNotes={itemNotes}
         cartTotal={cartTotal}
         isSubmitting={isSubmitting}
+        recommendations={recommendations}
+        isLoading={isLoadingRecs}
         onClose={() => setIsModalOpen(false)}
         onRemoveFromCart={removeFromCart}
         onAddToCart={addToCart}
         onUpdateNote={updateNote}
         onSubmitOrder={handleSubmitOrder}
+        onAddRecommendedItem={handleOpenOptions}
       />
 
       {/* Order History Drawer */}

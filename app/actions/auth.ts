@@ -34,10 +34,23 @@ export async function loginStaff(pin: string, callbackUrl: string) {
   };
 
   // Helper to clear attempts on success
-  const handleSuccess = async (role: "admin" | "cashier" | "kitchen", url: string) => {
+  const handleSuccess = async (role: "admin" | "cashier" | "kitchen", defaultUrl: string) => {
     if (rateLimit) await RateLimit.deleteOne({ ip });
     await setAuthCookie(role);
-    redirect(url);
+    
+    // Determine the target URL based on role permissions
+    let targetUrl = defaultUrl;
+    if (callbackUrl) {
+      if (role === "admin") {
+        targetUrl = callbackUrl;
+      } else if (role === "cashier" && callbackUrl.startsWith("/cashier")) {
+        targetUrl = callbackUrl;
+      } else if (role === "kitchen" && callbackUrl.startsWith("/kitchen")) {
+        targetUrl = callbackUrl;
+      }
+    }
+    
+    redirect(targetUrl);
   };
 
   // Get admin password from env
@@ -45,7 +58,7 @@ export async function loginStaff(pin: string, callbackUrl: string) {
 
   // Check Admin
   if (pin === adminPassword) {
-    await handleSuccess("admin", callbackUrl || "/admin");
+    await handleSuccess("admin", "/admin");
   }
 
   // Get Settings from DB
@@ -56,9 +69,9 @@ export async function loginStaff(pin: string, callbackUrl: string) {
 
   // Check roles
   if (pin === settings.cashierPin) {
-    await handleSuccess("cashier", callbackUrl || "/cashier");
+    await handleSuccess("cashier", "/cashier");
   } else if (pin === settings.kitchenPin) {
-    await handleSuccess("kitchen", callbackUrl || "/kitchen");
+    await handleSuccess("kitchen", "/kitchen");
   }
 
   return await recordFailedAttempt();
@@ -66,13 +79,17 @@ export async function loginStaff(pin: string, callbackUrl: string) {
 
 export async function logoutStaff() {
   const cookieStore = await cookies();
+  cookieStore.delete("staff_role_admin");
+  cookieStore.delete("staff_role_cashier");
+  cookieStore.delete("staff_role_kitchen");
   cookieStore.delete("staff_role");
   redirect("/login");
 }
 
 async function setAuthCookie(role: "admin" | "cashier" | "kitchen") {
   const cookieStore = await cookies();
-  cookieStore.set("staff_role", role, {
+  const cookieName = `staff_role_${role}`;
+  cookieStore.set(cookieName, role, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     maxAge: 60 * 60 * 12, // 12 hours expire
@@ -82,9 +99,20 @@ async function setAuthCookie(role: "admin" | "cashier" | "kitchen") {
 
 export async function verifyRole(allowedRoles: ("admin" | "cashier" | "kitchen")[]) {
   const cookieStore = await cookies();
-  const role = cookieStore.get("staff_role")?.value;
-  if (!role || !allowedRoles.includes(role as any)) {
-    throw new Error("Unauthorized access - Access denied");
+  
+  // Check role-specific cookies first
+  for (const role of allowedRoles) {
+    const roleVal = cookieStore.get(`staff_role_${role}`)?.value;
+    if (roleVal === role) {
+      return role;
+    }
   }
-  return role;
+
+  // Fallback to legacy cookie for backward compatibility
+  const legacyRole = cookieStore.get("staff_role")?.value;
+  if (legacyRole && allowedRoles.includes(legacyRole as any)) {
+    return legacyRole;
+  }
+
+  throw new Error("Unauthorized access - Access denied");
 }

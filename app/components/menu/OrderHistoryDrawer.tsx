@@ -2,6 +2,8 @@
 
 import { X, ReceiptText, Clock } from "lucide-react";
 import { StatusBadge } from "../ui/StatusBadge";
+import { formatPrice } from "@/lib/utils";
+
 
 interface OrderHistoryDrawerProps {
   isOpen: boolean;
@@ -72,14 +74,14 @@ export function OrderHistoryDrawer({
                         </span>
                         {item.note && <p className="text-xs text-amber-600 mt-1 bg-amber-50 inline-block px-2 py-0.5 rounded">* {item.note}</p>}
                       </div>
-                      <span className="text-slate-600 font-medium text-sm">฿{item.price * item.quantity}</span>
+                      <span className="text-slate-600 font-medium text-sm">{formatPrice(item.price * item.quantity)}</span>
                     </div>
                   ))}
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center bg-slate-100/70 -mx-5 -mb-5 p-5 rounded-b-2xl">
                   <span className="text-sm text-slate-500 font-medium">ราคารวม</span>
-                  <span className="text-lg font-bold text-blue-700">฿{order.totalAmount}</span>
+                  <span className="text-lg font-bold text-blue-700">{formatPrice(order.totalAmount)}</span>
                 </div>
               </div>
             ))

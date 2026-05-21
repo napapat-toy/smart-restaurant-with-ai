@@ -185,3 +185,58 @@ export async function getAnnualAnalytics(year: number): Promise<AnnualAnalyticsR
     tablesBreakdown
   };
 }
+
+export interface TodayAnalyticsResult {
+  totalRevenue: number;
+  totalOrders: number;
+  activeOrders: number;  // Pending + Cooking right now
+  activeTables: number;
+  topItems: { name: string; quantity: number }[];
+  lastUpdated: string;
+}
+
+export async function getTodayAnalytics(): Promise<TodayAnalyticsResult> {
+  await verifyRole(["admin"]);
+  await connectToDatabase();
+
+  const now = new Date();
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+
+  const todayOrders = await Order.find({
+    createdAt: { $gte: startOfDay },
+    status: { $ne: "Cancelled" },
+  }).lean();
+
+  let totalRevenue = 0;
+  let activeOrders = 0;
+  const activeTables = new Set<string>();
+  const itemCountMap = new Map<string, number>();
+
+  for (const order of todayOrders) {
+    if (order.status === "Pending" || order.status === "Cooking") {
+      activeOrders++;
+      activeTables.add(order.tableId);
+    }
+    if (order.status === "Paid" || order.status === "Served") {
+      totalRevenue += order.totalAmount || 0;
+    }
+    for (const item of order.items || []) {
+      const current = itemCountMap.get(item.name) || 0;
+      itemCountMap.set(item.name, current + (item.quantity || 1));
+    }
+  }
+
+  const topItems = Array.from(itemCountMap.entries())
+    .map(([name, quantity]) => ({ name, quantity }))
+    .sort((a, b) => b.quantity - a.quantity)
+    .slice(0, 5);
+
+  return {
+    totalRevenue,
+    totalOrders: todayOrders.length,
+    activeOrders,
+    activeTables: activeTables.size,
+    topItems,
+    lastUpdated: now.toISOString(),
+  };
+}

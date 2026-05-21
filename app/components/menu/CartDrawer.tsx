@@ -1,7 +1,10 @@
 "use client";
 
-import { X } from "lucide-react";
+import Image from "next/image";
+import { X, Plus, Sparkles } from "lucide-react";
 import { QuantityControl } from "../ui/QuantityControl";
+import { formatPrice } from "@/lib/utils";
+
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -9,11 +12,14 @@ interface CartDrawerProps {
   itemNotes: Record<string, string>;
   cartTotal: number;
   isSubmitting: boolean;
+  recommendations?: any[];
+  isLoading?: boolean;
   onClose: () => void;
   onRemoveFromCart: (cartItemId: string) => void;
   onAddToCart: (item: any, selectedOptions: any[]) => void;
   onUpdateNote: (cartItemId: string, note: string) => void;
   onSubmitOrder: () => void;
+  onAddRecommendedItem: (item: any) => void;
 }
 
 export function CartDrawer({
@@ -22,11 +28,14 @@ export function CartDrawer({
   itemNotes,
   cartTotal,
   isSubmitting,
+  recommendations = [],
+  isLoading = false,
   onClose,
   onRemoveFromCart,
   onAddToCart,
   onUpdateNote,
-  onSubmitOrder
+  onSubmitOrder,
+  onAddRecommendedItem
 }: CartDrawerProps) {
   if (!isOpen) return null;
 
@@ -59,13 +68,13 @@ export function CartDrawer({
                       <div className="mt-1 flex flex-wrap gap-1">
                         {c.selectedOptions.map((opt: any, idx: number) => (
                           <span key={idx} className="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded-md font-medium">
-                            {opt.groupName}: {opt.choiceName} {opt.priceDelta > 0 ? `(+฿${opt.priceDelta})` : ""}
+                            {opt.groupName}: {opt.choiceName} {opt.priceDelta > 0 ? `(+${formatPrice(opt.priceDelta)})` : ""}
                           </span>
                         ))}
                       </div>
                     )}
 
-                    <p className="text-blue-600 font-semibold text-sm mt-2">฿{unitPrice}</p>
+                    <p className="text-blue-600 font-semibold text-sm mt-2">{formatPrice(unitPrice)}</p>
                   </div>
                   <QuantityControl 
                     quantity={c.quantity} 
@@ -88,12 +97,65 @@ export function CartDrawer({
               </div>
             );
           })}
+
+          {/* AI Recommendations Section */}
+          {recommendations && recommendations.length > 0 && (
+            <div className="mt-8 pt-6 border-t border-slate-200/60">
+              <div className="flex items-center gap-2 mb-4">
+                <Sparkles size={16} className="text-amber-500 fill-amber-100 animate-pulse" />
+                <h4 className="text-sm font-bold text-slate-800">สั่งคู่กันอร่อยยิ่งขึ้น (AI แนะนำ)</h4>
+              </div>
+
+              {isLoading ? (
+                <div className="flex items-center justify-center py-6 gap-2">
+                  <div className="w-4 h-4 border-2 border-slate-200 border-t-blue-500 rounded-full animate-spin"></div>
+                  <span className="text-xs text-slate-400">กำลังคิดคำแนะนำ...</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {recommendations.map((item) => (
+                    <div key={item.id} className="flex items-center gap-3 p-3 bg-white rounded-2xl border border-slate-100 shadow-sm animate-in fade-in slide-in-from-bottom-2 duration-300">
+                      {item.image ? (
+                        <div className="relative w-12 h-12 shrink-0 rounded-xl overflow-hidden bg-slate-100 shadow-inner">
+                          <Image
+                            src={item.image}
+                            alt={item.name}
+                            fill
+                            sizes="48px"
+                            className="object-cover"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 text-[10px] font-semibold shrink-0">
+                          ไม่มีรูป
+                        </div>
+                      )}
+                      
+                      <div className="flex-1 min-w-0">
+                        <h5 className="text-xs font-semibold text-slate-800 truncate">{item.name}</h5>
+                        <p className="text-[10px] text-slate-400 truncate mb-1">{item.description || item.category}</p>
+                        <span className="text-xs font-bold text-blue-600">{formatPrice(item.price)}</span>
+                      </div>
+
+                      <button
+                        onClick={() => onAddRecommendedItem(item)}
+                        className="bg-blue-50 hover:bg-blue-100 text-blue-600 hover:text-blue-700 p-2 rounded-xl active:scale-95 transition-all shrink-0"
+                        title="เพิ่มลงตะกร้า"
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="modal-footer">
           <div className="flex justify-between items-center mb-4">
             <span className="text-slate-500 font-medium">ยอดรวมทั้งสิ้น</span>
-            <span className="text-2xl font-bold text-slate-900">฿{cartTotal}</span>
+            <span className="text-2xl font-bold text-slate-900">{formatPrice(cartTotal)}</span>
           </div>
           <button
             onClick={onSubmitOrder}

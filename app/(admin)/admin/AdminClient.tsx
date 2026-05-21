@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock, Utensils, Grid, Power, ShieldCheck, BarChart3 } from "lucide-react";
+import { Lock, Utensils, Grid, Power, ShieldCheck, BarChart3, Ticket, History } from "lucide-react";
 import { logoutStaff } from "@/app/actions/auth";
 import { useAdmin } from "./hooks/useAdmin";
 
@@ -11,6 +11,8 @@ import { TablesTab } from "./components/TablesTab";
 import { CategoriesTab } from "./components/CategoriesTab";
 import { MenuItemModal } from "./components/MenuItemModal";
 import { AnalyticsTab } from "./components/AnalyticsTab";
+import { DiscountsTab } from "./components/DiscountsTab";
+import OrderHistoryTab from "./components/OrderHistoryTab";
 
 export default function AdminClient({ initialData }: { initialData: any }) {
   const {
@@ -46,9 +48,9 @@ export default function AdminClient({ initialData }: { initialData: any }) {
   } = useAdmin({ initialData });
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+    <div className="admin-container">
       {/* Sidebar */}
-      <aside className="w-full md:w-64 bg-slate-900 text-white flex flex-col shrink-0">
+      <aside className="admin-sidebar">
         <div className="p-4 md:p-6 border-b border-slate-800 flex justify-between items-center">
           <h1 className="text-xl font-bold flex items-center gap-2">
             <ShieldCheck className="text-blue-400" />
@@ -59,36 +61,48 @@ export default function AdminClient({ initialData }: { initialData: any }) {
             <Power size={20} />
           </button>
         </div>
-        <nav className="flex-row md:flex-col overflow-x-auto md:overflow-visible flex-1 p-2 md:p-4 gap-2 flex md:space-y-2 no-scrollbar">
+        <nav className="admin-nav no-scrollbar">
           <button 
             onClick={() => setActiveTab("pins")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "pins" ? "bg-blue-600" : "hover:bg-slate-800 text-slate-300"}`}
+            className={`admin-nav-item ${activeTab === "pins" ? "is-active" : ""}`}
           >
             <Lock size={20} /> รหัสพนักงาน (PIN)
           </button>
           <button 
             onClick={() => setActiveTab("menu")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "menu" ? "bg-blue-600" : "hover:bg-slate-800 text-slate-300"}`}
+            className={`admin-nav-item ${activeTab === "menu" ? "is-active" : ""}`}
           >
             <Utensils size={20} /> จัดการเมนูอาหาร
           </button>
           <button 
             onClick={() => setActiveTab("tables")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "tables" ? "bg-blue-600" : "hover:bg-slate-800 text-slate-300"}`}
+            className={`admin-nav-item ${activeTab === "tables" ? "is-active" : ""}`}
           >
             <Grid size={20} className="shrink-0" /> <span className="whitespace-nowrap">โต๊ะ & QR</span>
           </button>
           <button 
             onClick={() => setActiveTab("categories")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "categories" ? "bg-blue-600" : "hover:bg-slate-800 text-slate-300"}`}
+            className={`admin-nav-item ${activeTab === "categories" ? "is-active" : ""}`}
           >
             <Grid size={20} className="shrink-0" /> <span className="whitespace-nowrap">หมวดหมู่เมนู</span>
           </button>
           <button 
             onClick={() => setActiveTab("analytics")}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${activeTab === "analytics" ? "bg-blue-600" : "hover:bg-slate-800 text-slate-300"}`}
+            className={`admin-nav-item ${activeTab === "analytics" ? "is-active" : ""}`}
           >
             <BarChart3 size={20} className="shrink-0" /> <span className="whitespace-nowrap">ยอดขาย & สถิติ</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab("discounts")}
+            className={`admin-nav-item ${activeTab === "discounts" ? "is-active" : ""}`}
+          >
+            <Ticket size={20} className="shrink-0" /> <span className="whitespace-nowrap">คูปองส่วนลด</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab("orders")}
+            className={`admin-nav-item ${activeTab === "orders" ? "is-active" : ""}`}
+          >
+            <History size={20} className="shrink-0" /> <span className="whitespace-nowrap">ประวัติออเดอร์</span>
           </button>
         </nav>
         <div className="hidden md:block p-4 border-t border-slate-800">
@@ -99,7 +113,7 @@ export default function AdminClient({ initialData }: { initialData: any }) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto">
+      <main className="admin-main">
         
         {/* PINS TAB */}
         {activeTab === "pins" && (
@@ -151,6 +165,16 @@ export default function AdminClient({ initialData }: { initialData: any }) {
         {/* ANALYTICS TAB */}
         {activeTab === "analytics" && (
           <AnalyticsTab />
+        )}
+
+        {/* DISCOUNTS TAB */}
+        {activeTab === "discounts" && (
+          <DiscountsTab />
+        )}
+
+        {/* ORDERS TAB */}
+        {activeTab === "orders" && (
+          <OrderHistoryTab />
         )}
 
       </main>

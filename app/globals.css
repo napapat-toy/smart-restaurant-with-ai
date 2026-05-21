@@ -29,15 +29,10 @@
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
   }
-  .safe-pt-header {
-    padding-top: calc(1.5rem + env(safe-area-inset-top, 0px));
-  }
-  .safe-pb-cart {
-    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
-  }
 }
 
 @layer components {
+  /* ==================== COMMON COMPONENTS & MODALS ==================== */
   .modal-overlay {
     @apply fixed inset-0 z-50 flex justify-center bg-black/40 sm:items-center sm:p-4 backdrop-blur-sm transition-all duration-300;
   }
@@ -73,6 +68,8 @@
   .modal-footer {
     @apply bg-white p-5 border-t border-slate-100 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)];
   }
+
+  /* ==================== CUSTOMER MODULE ==================== */
   .sticky-top-wrapper {
     @apply sticky top-0 z-30 shadow-[0_8px_30px_rgba(0,0,0,0.03)];
   }
@@ -96,14 +93,225 @@
   .cart-badge {
     @apply absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] w-5 h-5 flex items-center justify-center rounded-full font-bold shadow-sm border-2 border-blue-600;
   }
+
+  /* ==================== CASHIER MODULE ==================== */
+  .cashier-container {
+    @apply min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans;
+  }
+  .cashier-sidebar-left {
+    @apply flex-1 p-6 md:p-8 flex flex-col h-screen overflow-y-auto;
+  }
+  .cashier-sidebar-right {
+    @apply w-full md:w-[400px] lg:w-[480px] bg-white border-l border-slate-200 h-screen flex flex-col shadow-2xl relative z-20;
+    animation: slide-in-right 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  .cashier-sidebar-header {
+    @apply p-6 border-b border-slate-100 flex justify-between items-center bg-slate-900 text-white;
+  }
+  .cashier-sidebar-body {
+    @apply flex-1 overflow-y-auto p-6 bg-slate-50;
+  }
+  .cashier-table-grid {
+    @apply grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6;
+  }
+  
+  .cashier-table-card {
+    @apply text-left rounded-3xl p-5 border-2 transition-all duration-200 relative overflow-hidden;
+    @apply bg-slate-50 border-slate-200 hover:border-slate-300 opacity-70 hover:opacity-100;
+    
+    .card-title {
+      @apply text-3xl font-black flex items-center gap-2 text-slate-400;
+    }
+    .card-badge {
+      @apply px-2 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-600;
+    }
+    .card-label {
+      @apply text-sm font-medium mb-1 text-slate-400;
+    }
+    .card-amount {
+      @apply text-2xl font-bold text-slate-400;
+    }
+    
+    &.is-occupied {
+      @apply bg-white border-blue-200 hover:border-blue-400 hover:shadow-lg shadow-sm opacity-100;
+      
+      .card-title {
+        @apply text-blue-900;
+      }
+      .card-label {
+        @apply text-slate-500;
+      }
+      .card-amount {
+        @apply text-slate-900;
+      }
+    }
+    
+    &.is-selected {
+      @apply bg-blue-600 border-blue-600 text-white shadow-xl shadow-blue-200 ring-4 ring-blue-100 opacity-100;
+      
+      .card-title {
+        @apply text-white;
+      }
+      .card-badge {
+        @apply bg-white/25 text-white;
+      }
+      .card-label {
+        @apply text-blue-100;
+      }
+      .card-amount {
+        @apply text-white;
+      }
+    }
+  }
+
+  .btn-action-blue {
+    @apply p-2 bg-slate-800 text-slate-300 hover:text-white hover:bg-blue-600 rounded-full transition-colors disabled:opacity-50;
+  }
+  .btn-action-rose {
+    @apply p-2 bg-slate-800 text-slate-300 hover:text-white hover:bg-rose-600 rounded-full transition-colors disabled:opacity-50;
+  }
+  .cashier-order-card {
+    @apply bg-white p-5 rounded-2xl shadow-sm border border-slate-100;
+  }
+  .cashier-ai-recs {
+    @apply mt-6 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100/80 rounded-2xl p-4 shadow-sm space-y-3;
+  }
+  .cashier-ai-rec-item {
+    @apply bg-white/80 backdrop-blur-sm border border-indigo-50 rounded-xl p-2.5 flex items-center justify-between text-xs transition-all hover:bg-white;
+  }
+  .cashier-footer {
+    @apply p-6 bg-white border-t border-slate-100 shrink-0 shadow-[0_-10px_20px_-10px_rgba(0,0,0,0.05)];
+  }
+  .cashier-promo-container {
+    @apply mb-4;
+  }
+  .cashier-promo-input {
+    @apply flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 font-bold uppercase tracking-wider;
+  }
+  .btn-promo-apply {
+    @apply px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl active:scale-95 transition-all shadow-sm flex items-center gap-1 shrink-0;
+  }
+  .cashier-promo-applied {
+    @apply flex items-center justify-between bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2 rounded-xl text-xs font-bold;
+  }
+  .cashier-total-box {
+    @apply flex justify-between items-end mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100;
+  }
+  .btn-payment {
+    @apply w-full bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold rounded-2xl py-5 text-lg flex justify-center items-center gap-2 active:scale-[0.98] transition-all shadow-lg shadow-emerald-600/20 disabled:shadow-none;
+  }
+
+  /* ==================== KITCHEN MODULE ==================== */
+  .kitchen-container {
+    @apply min-h-screen bg-slate-950 p-6 md:p-8 font-sans;
+  }
+  .kitchen-tab-bar {
+    @apply flex bg-slate-900 border border-slate-800 p-1 rounded-2xl;
+  }
+  .kitchen-tab-btn {
+    @apply px-4 py-2 rounded-xl text-sm font-semibold transition-all text-slate-400 hover:text-white;
+    
+    &.is-active {
+      @apply bg-blue-600 text-white shadow-lg;
+    }
+  }
+  .kitchen-stat-box {
+    @apply bg-slate-900 border border-slate-800 px-6 py-3 rounded-2xl text-center flex-1 md:flex-none shadow-inner;
+  }
+  .kitchen-empty-placeholder {
+    @apply col-span-full py-32 flex flex-col items-center justify-center text-slate-500 bg-slate-900/30 rounded-3xl border border-slate-800 border-dashed;
+  }
+  .kitchen-order-card {
+    @apply rounded-2xl p-5 border-l-4 shadow-lg flex flex-col h-full transition-all bg-slate-800 text-slate-200;
+    
+    &.is-pending {
+      @apply border-amber-500;
+    }
+    
+    &.is-cooking {
+      @apply border-blue-500;
+    }
+  }
+  .kitchen-item-box {
+    @apply bg-slate-700/50 p-3 rounded-xl flex gap-3;
+  }
+  .kitchen-item-qty {
+    @apply w-8 h-8 shrink-0 bg-slate-600 text-white rounded-lg flex items-center justify-center font-bold;
+  }
+  .kitchen-item-note {
+    @apply text-amber-400 text-sm mt-1 bg-amber-400/10 inline-block px-2 py-0.5 rounded-md font-medium;
+  }
+  .btn-kitchen-cooking {
+    @apply w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-lg shadow-blue-900/50;
+  }
+  .btn-kitchen-served {
+    @apply w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/50;
+  }
+
+  /* ==================== AUTH MODULE ==================== */
+  .auth-container {
+    @apply min-h-screen bg-slate-50 flex items-center justify-center p-4;
+  }
+  .auth-card {
+    @apply bg-white p-8 rounded-3xl shadow-xl w-full max-w-sm border border-slate-100;
+  }
+  .auth-input-pin {
+    @apply w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-xl tracking-widest font-medium;
+  }
+  .btn-auth-submit {
+    @apply w-full bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:text-slate-500 text-white font-bold py-4 rounded-2xl transition-all shadow-md hover:shadow-lg disabled:shadow-none;
+  }
+
+  /* ==================== ADMIN MODULE ==================== */
+  .admin-container {
+    @apply min-h-screen bg-slate-50 flex flex-col md:flex-row;
+  }
+  .admin-sidebar {
+    @apply w-full md:w-64 bg-slate-900 text-white flex flex-col shrink-0;
+  }
+  .admin-nav {
+    @apply flex-row md:flex-col overflow-x-auto md:overflow-visible flex-1 p-2 md:p-4 gap-2 flex md:space-y-2;
+  }
+  .admin-nav-item {
+    @apply w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors text-slate-300 hover:bg-slate-800;
+    
+    &.is-active {
+      @apply bg-blue-600 text-white;
+    }
+  }
+  .admin-main {
+    @apply flex-1 p-4 md:p-8 overflow-y-auto;
+  }
 }
 
 @media print {
-  body {
-    background-color: white !important;
+  html, body {
+    height: auto;
+    background-color: #fff !important;
+    font-size: 11pt;
+    color: #000;
+  }
+  body * {
+    visibility: hidden !important;
+  }
+  .print-area, .print-area * {
+    visibility: visible !important;
+  }
+  .print-area {
+    position: absolute !important;
+    left: 50% !important;
+    top: 0 !important;
+    transform: translateX(-50%) !important;
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 10px !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: white !important;
   }
   @page {
-    margin: 1cm;
+    size: 80mm auto;
+    margin: 0;
   }
 }
 
@@ -118,32 +326,16 @@
   }
 }
 
-/* Premium Styling Utilities */
-.backdrop-blur-premium {
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-}
-
-.skeleton-premium {
-  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-  background-size: 200% 100%;
-  animation: shimmer-effect 1.6s infinite linear;
-}
-
-.active-press-micro {
-  @apply transition-all duration-150 ease-out active:scale-95 active:opacity-90;
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 .text-shadow-subtle {
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
-}
-
-@keyframes shimmer-effect {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
 }
 
