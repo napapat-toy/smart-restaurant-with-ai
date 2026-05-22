@@ -6,6 +6,7 @@ import { Order } from "@/models/Order";
 import { Settings } from "@/models/Settings";
 import { Category } from "@/models/Category";
 import { mockMenuItems, mockTables, mockCategories } from "./mockData";
+import { encryptText } from "@/lib/crypto";
 
 export async function GET() {
   try {
@@ -44,8 +45,8 @@ export async function GET() {
     // Seed Settings (PINs)
     // cashier = 1111, kitchen = 2222
     await Settings.create({
-      cashierPin: "1111",
-      kitchenPin: "2222",
+      cashierPin: encryptText("1111"),
+      kitchenPin: encryptText("2222"),
       lastPinResetDate: new Date()
     });
 

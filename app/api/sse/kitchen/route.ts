@@ -1,7 +1,6 @@
 import { NextRequest } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
 import { Order } from "@/models/Order";
-import { cookies } from "next/headers";
 import { verifyRole } from "@/app/actions/auth";
 
 export const dynamic = "force-dynamic";

@@ -9,6 +9,7 @@ import { Order } from "@/models/Order";
 import { revalidatePath } from "next/cache";
 import { verifyRole } from "./auth";
 import { generateSecureToken } from "@/lib/utils";
+import { decryptText, encryptText } from "@/lib/crypto";
 
 export async function getAdminData() {
   await verifyRole(["admin"]);
@@ -31,7 +32,12 @@ export async function getAdminData() {
   });
 
   return {
-    settings: settings ? { ...settings, _id: settings._id.toString() } : null,
+    settings: settings ? {
+      ...settings,
+      _id: settings._id.toString(),
+      cashierPin: decryptText(settings.cashierPin),
+      kitchenPin: decryptText(settings.kitchenPin),
+    } : null,
     categories: categories.map((c: any) => ({ ...c, _id: c._id.toString() })),
     menuItems: menuItems.map((m: any) => ({ ...m, _id: m._id.toString() })),
     tables: formattedTables
@@ -41,17 +47,24 @@ export async function getAdminData() {
 export async function generateNewPins() {
   await verifyRole(["admin"]);
   await connectToDatabase();
-  const cashierPin = Math.floor(1000 + Math.random() * 9000).toString();
-  const kitchenPin = Math.floor(1000 + Math.random() * 9000).toString();
+  const rawCashierPin = Math.floor(1000 + Math.random() * 9000).toString();
+  const rawKitchenPin = Math.floor(1000 + Math.random() * 9000).toString();
+
+  const encryptedCashierPin = encryptText(rawCashierPin);
+  const encryptedKitchenPin = encryptText(rawKitchenPin);
 
   const settings = await Settings.findOne();
   if (settings) {
-    settings.cashierPin = cashierPin;
-    settings.kitchenPin = kitchenPin;
+    settings.cashierPin = encryptedCashierPin;
+    settings.kitchenPin = encryptedKitchenPin;
     settings.lastPinResetDate = new Date();
     await settings.save();
   } else {
-    await Settings.create({ cashierPin, kitchenPin, lastPinResetDate: new Date() });
+    await Settings.create({
+      cashierPin: encryptedCashierPin,
+      kitchenPin: encryptedKitchenPin,
+      lastPinResetDate: new Date()
+    });
   }
 
   revalidatePath('/admin');

@@ -18,8 +18,8 @@ export function DiscountsTab() {
   const [minOrderAmount, setMinOrderAmount] = useState(0);
   const [maxDiscountAmount, setMaxDiscountAmount] = useState(0);
   const [usageLimit, setUsageLimit] = useState(100);
-  const [startDate, setStartDate] = useState(new Date().toISOString().split("T")[0]);
-  const [endDate, setEndDate] = useState(
+  const [startDate, setStartDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [endDate, setEndDate] = useState(() => 
     new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
   );
 

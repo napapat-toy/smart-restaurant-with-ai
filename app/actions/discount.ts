@@ -57,11 +57,12 @@ export async function validateDiscount(code: string, orderAmount: number): Promi
   };
 }
 
-export async function applyDiscountUsage(code: string) {
+export async function applyDiscountUsage(code: string, options?: { session?: any }) {
   await connectToDatabase();
   await Discount.findOneAndUpdate(
     { code: code.toUpperCase().trim() },
-    { $inc: { usageCount: 1 } }
+    { $inc: { usageCount: 1 } },
+    options
   );
 }
 

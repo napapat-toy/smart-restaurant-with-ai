@@ -1,5 +1,6 @@
 "use server";
 
+import mongoose from "mongoose";
 import connectToDatabase from "@/lib/mongodb";
 import { Order, ACTIVE_ORDER_QUERY } from "@/models/Order";
 import { Table } from "@/models/Table";
@@ -67,15 +68,65 @@ export async function processPayment(tableId: string, discountCode?: string, dis
   try {
     await verifyRole(["admin", "cashier"]);
     await connectToDatabase();
+  } catch (error: any) {
+    console.error("Auth or Connection error in processPayment:", error);
+    return { success: false, error: error.message || "An unexpected error occurred." };
+  }
+
+  let session: any = null;
+  try {
+    session = await mongoose.startSession();
+    session.startTransaction();
     
-    const table = await Table.findById(tableId);
+    const result = await executePayment(session);
+    await session.commitTransaction();
+    return result;
+  } catch (txError: any) {
+    if (session) {
+      try {
+        await session.abortTransaction();
+      } catch {
+        // ignore abort error
+      }
+    }
+    
+    // Check if the error indicates transaction is not supported (replica set warning or sessions not supported)
+    const isNoReplicaSet = 
+      txError.message.includes("replica set") || 
+      txError.message.includes("does not support sessions") ||
+      txError.message.includes("Transaction numbers are only allowed") ||
+      txError.code === 20;
+
+    if (isNoReplicaSet) {
+      console.warn("MongoDB transactions not supported by deployment (no replica set). Falling back to non-transactional execution.");
+      // Fallback: run without transaction session
+      try {
+        return await executePayment(undefined);
+      } catch (fallbackError: any) {
+        console.error("Error processing payment (fallback):", fallbackError);
+        return { success: false, error: fallbackError.message || "An unexpected error occurred." };
+      }
+    } else {
+      console.error("Transaction aborted due to error:", txError);
+      return { success: false, error: txError.message || "An unexpected error occurred." };
+    }
+  } finally {
+    if (session) {
+      await session.endSession();
+    }
+  }
+
+  async function executePayment(txSession?: any) {
+    const table = txSession 
+      ? await Table.findById(tableId).session(txSession)
+      : await Table.findById(tableId);
+
     if (!table) return { success: false, error: "Table not found" };
 
     // Find unpaid orders for this table
-    const unpaidOrders = await Order.find({ 
-      tableId: table.tableNumber,
-      ...ACTIVE_ORDER_QUERY 
-    });
+    const unpaidOrders = txSession
+      ? await Order.find({ tableId: table.tableNumber, ...ACTIVE_ORDER_QUERY }).session(txSession)
+      : await Order.find({ tableId: table.tableNumber, ...ACTIVE_ORDER_QUERY });
 
     if (discountAmount && discountAmount > 0) {
       const totalBeforeDiscount = unpaidOrders.reduce((sum, o) => sum + o.totalAmount, 0);
@@ -96,26 +147,32 @@ export async function processPayment(tableId: string, discountCode?: string, dis
 
     for (const order of unpaidOrders) {
       order.status = 'Paid';
-      await order.save();
+      if (txSession) {
+        await order.save({ session: txSession });
+      } else {
+        await order.save();
+      }
     }
 
     // Apply discount usage count if a valid code was used
     if (discountCode) {
-      await applyDiscountUsage(discountCode);
+      await applyDiscountUsage(discountCode, txSession ? { session: txSession } : undefined);
     }
 
     // Free up the table and rotate the token to invalidate the old QR
     table.status = 'Available';
     table.token = "tok_" + generateSecureToken(6);
-    await table.save();
+    
+    if (txSession) {
+      await table.save({ session: txSession });
+    } else {
+      await table.save();
+    }
 
     // Fire-and-forget: update recommendation pairings from this new paid data
     learnPairingsFromOrders().catch(() => {});
 
     return { success: true, paidCount: unpaidOrders.length };
-  } catch (error: any) {
-    console.error("Error processing payment:", error);
-    return { success: false, error: error.message || "An unexpected error occurred." };
   }
 }
 

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useSearchParams } from "next/navigation";
+import { isRedirectError } from "next/dist/client/components/redirect-error";
 import { loginStaff } from "@/app/actions/auth";
 import { Lock, UserCircle } from "lucide-react";
 
@@ -23,7 +24,10 @@ export default function LoginClient() {
         if (result?.error) {
           setError(result.error);
         }
-      } catch {
+      } catch (err: any) {
+        if (isRedirectError(err)) {
+          throw err;
+        }
         setError("เกิดข้อผิดพลาดในการเข้าสู่ระบบ");
       }
     });
