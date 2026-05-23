@@ -3,7 +3,11 @@ import { test, expect } from '@playwright/test';
 test.describe('Staff Authentication and Role Isolation', () => {
   test.beforeEach(async ({ request }) => {
     // Seed the database to ensure clean state and correct PINs
-    const response = await request.get('/api/seed');
+    const response = await request.get('/api/seed', {
+      headers: {
+        'x-seed-key': process.env.SEED_API_KEY || ''
+      }
+    });
     expect(response.ok()).toBeTruthy();
   });
 

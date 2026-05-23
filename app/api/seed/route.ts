@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import connectToDatabase from "@/lib/mongodb";
 import { MenuItem } from "@/models/MenuItem";
 import { Table } from "@/models/Table";
@@ -8,8 +8,28 @@ import { Category } from "@/models/Category";
 import { mockMenuItems, mockTables, mockCategories } from "./mockData";
 import { encryptText } from "@/lib/crypto";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const seedApiKey = process.env.SEED_API_KEY;
+
+    if (!seedApiKey) {
+      return NextResponse.json(
+        { error: "Database seeding is disabled: SEED_API_KEY is not configured." },
+        { status: 500 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const keyFromQuery = searchParams.get("key");
+    const keyFromHeader = request.headers.get("x-seed-key");
+
+    if (keyFromQuery !== seedApiKey && keyFromHeader !== seedApiKey) {
+      return NextResponse.json(
+        { error: "Unauthorized access to database seeding." },
+        { status: 401 }
+      );
+    }
+
     await connectToDatabase();
 
     // Clear existing data
